@@ -1,0 +1,29 @@
+# Configuracion de Netlify para FoxTrips (web estatica)
+# Solo se publica la app: los documentos internos (PLAN.md, README.md, SKILLS.md) y el SQL no salen a internet.
+[build]
+  command = "rm -rf dist && mkdir dist && cp -r index.html sw.js manifest.webmanifest assets dist/"
+  publish = "dist"
+
+# Funciones de servidor (borrar fotos de Cloudinary con firma). Las claves van en variables de entorno.
+[functions]
+  directory = "netlify/functions"
+
+# El service worker y el manifiesto no se guardan en cache: asi cada version nueva llega a todos
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
+
+# Cabeceras de seguridad basicas
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"

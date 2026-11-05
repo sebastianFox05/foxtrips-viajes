@@ -1,0 +1,17 @@
+{
+  "name": "FoxTrips · Viajes en grupo",
+  "short_name": "FoxTrips",
+  "description": "Itinerario compartido, mapa, álbum de fotos, votaciones y diario para viajar en grupo.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f4",
+  "theme_color": "#141414",
+  "icons": [
+    { "src": "assets/img/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/img/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/img/icono-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

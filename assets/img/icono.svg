@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>FoxTrips</title>
+  <rect width="64" height="64" rx="16" fill="#141414"/>
+  <!-- orejas -->
+  <path d="M12 12l12 9-9 7z" fill="#f08a3c"/>
+  <path d="M52 12l-12 9 9 7z" fill="#f08a3c"/>
+  <path d="M15 17l5 4-3 3z" fill="#5a2a12"/>
+  <path d="M49 17l-5 4 3 3z" fill="#5a2a12"/>
+  <!-- cabeza -->
+  <path d="M14 24l18-6 18 6-4 14-14 14-14-14z" fill="#f08a3c"/>
+  <!-- mejillas blancas -->
+  <path d="M14 24l18 14-14 0z" fill="#fff4e6"/>
+  <path d="M50 24L32 38h14z" fill="#fff4e6"/>
+  <path d="M18 38h28L32 52z" fill="#fff4e6"/>
+  <!-- ojos y nariz -->
+  <circle cx="24" cy="31" r="2.2" fill="#141414"/>
+  <circle cx="40" cy="31" r="2.2" fill="#141414"/>
+  <path d="M29 47h6l-3 4z" fill="#141414"/>
+</svg>

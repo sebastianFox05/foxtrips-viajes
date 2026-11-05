@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FoxTrips · Viajes en grupo</title>
+  <meta name="description" content="FoxTrips: organiza viajes en grupo con itinerario compartido, mapa, álbum de fotos, votaciones, diario y documentos.">
+  <meta name="theme-color" content="#141414">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/img/icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/img/icono-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script type="module" src="assets/js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#app">Saltar al contenido</a>
+
+  <!-- Cabecera -->
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="site-header__brand" href="#/" aria-label="FoxTrips, ir a mis viajes">
+        <img class="site-header__logo" src="assets/img/icono.svg" alt="" width="32" height="32">
+        <span class="site-header__brand-text">FoxTrips</span>
+      </a>
+      <nav class="site-header__nav" id="siteNav" aria-label="Principal">
+        <a class="site-header__link" href="#/" data-route="home">
+          <span class="site-header__label site-header__label--short">Viajes</span>
+          <span class="site-header__label site-header__label--long">Mis viajes</span>
+        </a>
+        <a class="site-header__link" href="#/planes" data-route="planes">
+          <span class="site-header__label site-header__label--short">Planes</span>
+          <span class="site-header__label site-header__label--long">Planes recomendados</span>
+        </a>
+      </nav>
+      <div class="site-header__user" id="userArea"></div>
+    </div>
+  </header>
+
+  <p class="banner" id="modeBanner" hidden></p>
+
+  <!-- Contenido: lo pinta assets/js/app.js segun la ruta -->
+  <main class="main" id="app" tabindex="-1">
+    <p class="loading">Cargando…</p>
+  </main>
+
+  <!-- Barra inferior (movil): la rellena assets/js/app.js -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Navegación inferior" hidden></nav>
+
+  <!-- Pie -->
+  <footer class="site-footer">
+    <p class="site-footer__text">FoxTrips · Hecho para viajar en grupo. Mapas © colaboradores de OpenStreetMap.</p>
+  </footer>
+
+  <!-- Modal generico -->
+  <dialog class="modal" id="modal" aria-labelledby="modalTitle">
+    <div class="modal__box">
+      <header class="modal__header">
+        <h2 class="modal__title" id="modalTitle"></h2>
+        <button class="modal__close" type="button" data-action="close-modal" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal__body" id="modalBody"></div>
+    </div>
+  </dialog>
+
+  <!-- Lightbox del album -->
+  <dialog class="lightbox" id="lightbox" aria-label="Visor de fotos">
+    <button class="lightbox__close" type="button" data-action="lightbox-close" aria-label="Cerrar visor">×</button>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" data-action="lightbox-prev" aria-label="Foto anterior">‹</button>
+    <figure class="lightbox__figure">
+      <picture class="lightbox__picture" id="lightboxPicture"></picture>
+      <figcaption class="lightbox__caption">
+        <span class="lightbox__counter" id="lightboxCounter"></span>
+        <span class="lightbox__text" id="lightboxText"></span>
+      </figcaption>
+    </figure>
+    <button class="lightbox__nav lightbox__nav--next" type="button" data-action="lightbox-next" aria-label="Foto siguiente">›</button>
+    <section class="lightbox__comments" id="lightboxComments" aria-label="Comentarios de la foto"></section>
+  </dialog>
+
+  <div class="toast-region" id="toasts" aria-live="polite" aria-atomic="false"></div>
+</body>
+</html>
