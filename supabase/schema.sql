@@ -204,6 +204,46 @@ create index if not exists photos_trip_idx on public.photos (trip_id);
 create index if not exists comments_trip_idx on public.comments (trip_id);
 create index if not exists log_trip_idx on public.activity_log (trip_id, created_at desc);
 
+-- Indices para las claves foraneas (aviso unindexed_foreign_keys del asesor de Supabase)
+create index if not exists checklist_items_trip_idx on public.checklist_items (trip_id);
+create index if not exists documents_trip_idx on public.documents (trip_id);
+create index if not exists invites_trip_idx on public.invites (trip_id);
+create index if not exists invites_created_by_idx on public.invites (created_by);
+create index if not exists photos_activity_idx on public.photos (activity_id);
+create index if not exists proposals_trip_idx on public.proposals (trip_id);
+create index if not exists trip_members_user_idx on public.trip_members (user_id);
+create index if not exists trips_created_by_idx on public.trips (created_by);
+create index if not exists votes_trip_idx on public.votes (trip_id);
+create index if not exists votes_proposal_trip_idx on public.votes (proposal_id, trip_id);
+
+-- Limites de longitud en los textos libres (se añaden solo si no existen)
+do $$
+declare
+  c record;
+begin
+  for c in select * from (values
+    ('profiles',        'profiles_display_name_len',  'char_length(display_name) <= 80'),
+    ('trips',           'trips_name_len',             'char_length(name) <= 120'),
+    ('trips',           'trips_destination_len',      'char_length(destination) <= 200'),
+    ('trips',           'trips_description_len',      'char_length(description) <= 5000'),
+    ('activities',      'activities_title_len',       'char_length(title) <= 200'),
+    ('activities',      'activities_place_len',       'char_length(place) <= 300'),
+    ('activities',      'activities_notes_len',       'char_length(notes) <= 5000'),
+    ('photos',          'photos_caption_len',         'char_length(caption) <= 1000'),
+    ('comments',        'comments_body_len',          'char_length(body) <= 2000'),
+    ('proposals',       'proposals_title_len',        'char_length(title) <= 200'),
+    ('proposals',       'proposals_description_len',  'char_length(description) <= 2000'),
+    ('documents',       'documents_name_len',         'char_length(name) <= 255'),
+    ('checklist_items', 'checklist_items_text_len',   'char_length(text) <= 300'),
+    ('diary_entries',   'diary_entries_body_len',     'char_length(body) <= 20000')
+  ) as t(tbl, name, expr)
+  loop
+    if not exists (select 1 from pg_constraint where conname = c.name) then
+      execute format('alter table public.%I add constraint %I check (%s)', c.tbl, c.name, c.expr);
+    end if;
+  end loop;
+end $$;
+
 -- ----------------------------------------------------------------------------
 -- 4. Funciones de permisos (security definer para evitar recursion en RLS)
 -- ----------------------------------------------------------------------------
@@ -238,7 +278,7 @@ $$;
 
 -- Id del viaje a partir de la ruta "<trip_id>/archivo" (null si no es un uuid)
 create or replace function public.folder_trip(object_name text)
-returns uuid language plpgsql immutable as $$
+returns uuid language plpgsql immutable set search_path = public as $$
 begin
   return ((storage.foldername(object_name))[1])::uuid;
 exception when others then
@@ -292,13 +332,15 @@ begin
   end loop;
 end $$;
 
+-- auth.uid() va siempre como (select auth.uid()) para que se calcule una vez por consulta y no por fila.
+
 -- Perfiles: te ves a ti y a quien viaja contigo
 create policy "profiles_select" on public.profiles for select to authenticated using (
-  id = auth.uid() or exists (
+  id = (select auth.uid()) or exists (
     select 1 from public.trip_members mine join public.trip_members theirs on mine.trip_id = theirs.trip_id
-    where mine.user_id = auth.uid() and theirs.user_id = profiles.id)
+    where mine.user_id = (select auth.uid()) and theirs.user_id = profiles.id)
 );
-create policy "profiles_update" on public.profiles for update to authenticated using (id = auth.uid());
+create policy "profiles_update" on public.profiles for update to authenticated using (id = (select auth.uid()));
 
 -- Viajes (se crean con create_trip; public_token y created_by los protege el trigger)
 create policy "trips_select" on public.trips for select to authenticated using (public.is_member(id));
@@ -309,64 +351,73 @@ create policy "trips_delete" on public.trips for delete to authenticated using (
 create policy "members_select" on public.trip_members for select to authenticated using (public.is_member(trip_id));
 create policy "members_update" on public.trip_members for update to authenticated using (public.is_owner(trip_id));
 create policy "members_delete" on public.trip_members for delete to authenticated
-  using (public.is_owner(trip_id) or user_id = auth.uid());
+  using (public.is_owner(trip_id) or user_id = (select auth.uid()));
 
 -- Invitaciones: caducan a los 14 dias y el organizador puede revocarlas
 create policy "invites_select" on public.invites for select to authenticated using (public.can_edit(trip_id));
 create policy "invites_insert" on public.invites for insert to authenticated
-  with check (public.can_edit(trip_id) and created_by = auth.uid());
+  with check (public.can_edit(trip_id) and created_by = (select auth.uid()));
 create policy "invites_delete" on public.invites for delete to authenticated using (public.is_owner(trip_id));
 
--- Tablas que solo editan organizadores y editores
+-- Tablas que solo editan organizadores y editores. Lectura: cualquier miembro (*_select);
+-- escritura: una politica por accion (sin "for all", para no duplicar el SELECT; can_edit implica is_member).
 create policy "activities_select" on public.activities for select to authenticated using (public.is_member(trip_id));
-create policy "activities_write" on public.activities for all to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "activities_insert" on public.activities for insert to authenticated with check (public.can_edit(trip_id));
+create policy "activities_update" on public.activities for update to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "activities_delete" on public.activities for delete to authenticated using (public.can_edit(trip_id));
 
 create policy "photos_select" on public.photos for select to authenticated using (public.is_member(trip_id));
-create policy "photos_write" on public.photos for all to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "photos_insert" on public.photos for insert to authenticated with check (public.can_edit(trip_id));
+create policy "photos_update" on public.photos for update to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "photos_delete" on public.photos for delete to authenticated using (public.can_edit(trip_id));
 
 create policy "documents_select" on public.documents for select to authenticated using (public.is_member(trip_id));
-create policy "documents_write" on public.documents for all to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "documents_insert" on public.documents for insert to authenticated with check (public.can_edit(trip_id));
+create policy "documents_update" on public.documents for update to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "documents_delete" on public.documents for delete to authenticated using (public.can_edit(trip_id));
 
 create policy "diary_select" on public.diary_entries for select to authenticated using (public.is_member(trip_id));
-create policy "diary_write" on public.diary_entries for all to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "diary_insert" on public.diary_entries for insert to authenticated with check (public.can_edit(trip_id));
+create policy "diary_update" on public.diary_entries for update to authenticated using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
+create policy "diary_delete" on public.diary_entries for delete to authenticated using (public.can_edit(trip_id));
 
 -- Comentarios: cualquier miembro (tambien lectores), siempre sobre algo del mismo viaje
 create policy "comments_select" on public.comments for select to authenticated using (public.is_member(trip_id));
 create policy "comments_insert" on public.comments for insert to authenticated
-  with check (public.is_member(trip_id) and author_id = auth.uid() and public.target_in_trip(target_type, target_id, trip_id));
+  with check (public.is_member(trip_id) and author_id = (select auth.uid()) and public.target_in_trip(target_type, target_id, trip_id));
 create policy "comments_delete" on public.comments for delete to authenticated
-  using (public.is_member(trip_id) and (author_id = auth.uid() or public.is_owner(trip_id)));
+  using (public.is_member(trip_id) and (author_id = (select auth.uid()) or public.is_owner(trip_id)));
 
 -- Propuestas: cualquiera propone, los editores aceptan o descartan
 create policy "proposals_select" on public.proposals for select to authenticated using (public.is_member(trip_id));
 create policy "proposals_insert" on public.proposals for insert to authenticated
-  with check (public.is_member(trip_id) and author_id = auth.uid());
+  with check (public.is_member(trip_id) and author_id = (select auth.uid()));
 create policy "proposals_update" on public.proposals for update to authenticated
   using (public.can_edit(trip_id)) with check (public.can_edit(trip_id));
 create policy "proposals_delete" on public.proposals for delete to authenticated
-  using (public.is_member(trip_id) and (author_id = auth.uid() or public.is_owner(trip_id)));
+  using (public.is_member(trip_id) and (author_id = (select auth.uid()) or public.is_owner(trip_id)));
 
 -- Votos: uno por persona y propuesta, solo mientras sigues en el viaje
 create policy "votes_select" on public.votes for select to authenticated using (public.is_member(trip_id));
-create policy "votes_insert" on public.votes for insert to authenticated with check (public.is_member(trip_id) and user_id = auth.uid());
+create policy "votes_insert" on public.votes for insert to authenticated with check (public.is_member(trip_id) and user_id = (select auth.uid()));
 create policy "votes_update" on public.votes for update to authenticated
-  using (public.is_member(trip_id) and user_id = auth.uid()) with check (public.is_member(trip_id) and user_id = auth.uid());
-create policy "votes_delete" on public.votes for delete to authenticated using (public.is_member(trip_id) and user_id = auth.uid());
+  using (public.is_member(trip_id) and user_id = (select auth.uid())) with check (public.is_member(trip_id) and user_id = (select auth.uid()));
+create policy "votes_delete" on public.votes for delete to authenticated using (public.is_member(trip_id) and user_id = (select auth.uid()));
 
 -- Equipaje: lo comun lo editan los editores; lo personal solo su dueño (y solo el lo ve)
 create policy "checklist_select" on public.checklist_items for select to authenticated
-  using (public.is_member(trip_id) and (is_shared or owner_id = auth.uid()));
+  using (public.is_member(trip_id) and (is_shared or owner_id = (select auth.uid())));
 create policy "checklist_insert" on public.checklist_items for insert to authenticated
-  with check (public.is_member(trip_id) and owner_id = auth.uid() and (not is_shared or public.can_edit(trip_id)));
+  with check (public.is_member(trip_id) and owner_id = (select auth.uid()) and (not is_shared or public.can_edit(trip_id)));
 create policy "checklist_update" on public.checklist_items for update to authenticated
-  using (public.is_member(trip_id) and ((is_shared and public.can_edit(trip_id)) or (not is_shared and owner_id = auth.uid())));
+  using (public.is_member(trip_id) and ((is_shared and public.can_edit(trip_id)) or (not is_shared and owner_id = (select auth.uid()))));
 create policy "checklist_delete" on public.checklist_items for delete to authenticated
-  using (public.is_member(trip_id) and ((is_shared and public.can_edit(trip_id)) or (not is_shared and owner_id = auth.uid())));
+  using (public.is_member(trip_id) and ((is_shared and public.can_edit(trip_id)) or (not is_shared and owner_id = (select auth.uid()))));
 
 -- Historial
 create policy "log_select" on public.activity_log for select to authenticated using (public.is_member(trip_id));
 create policy "log_insert" on public.activity_log for insert to authenticated
-  with check (public.is_member(trip_id) and actor_id = auth.uid());
+  with check (public.is_member(trip_id) and actor_id = (select auth.uid()));
 
 -- ----------------------------------------------------------------------------
 -- 6. Funciones llamadas desde la app
@@ -431,8 +482,18 @@ returns json language sql stable security definer set search_path = public as $$
   where token is not null and t.public_token = token
 $$;
 
-grant execute on function public.create_trip(jsonb) to authenticated;
-grant execute on function public.join_trip(text) to authenticated;
+-- Permisos de las funciones. Supabase da EXECUTE a anon y authenticated por defecto: se quita a anon
+-- (y a public) en todo lo que necesita sesion. authenticated las sigue necesitando para las politicas RLS
+-- y para netlify/functions/borrar-foto.mjs (llama a /rpc/can_edit e /rpc/is_owner con el token del usuario).
+revoke execute on function public.trip_role(uuid), public.is_member(uuid), public.can_edit(uuid), public.is_owner(uuid),
+  public.target_in_trip(text, uuid, uuid), public.folder_trip(text), public.create_trip(jsonb), public.join_trip(text)
+  from anon, public;
+grant execute on function public.trip_role(uuid), public.is_member(uuid), public.can_edit(uuid), public.is_owner(uuid),
+  public.target_in_trip(text, uuid, uuid), public.folder_trip(text), public.create_trip(jsonb), public.join_trip(text)
+  to authenticated;
+-- Funciones de trigger: nadie las llama por la API (los triggers funcionan igual sin este permiso)
+revoke execute on function public.handle_new_user(), public.protect_trip_fields() from anon, authenticated, public;
+-- Pagina publica: la usan visitantes sin cuenta
 grant execute on function public.get_public_trip(text) to anon, authenticated;
 
 -- ----------------------------------------------------------------------------
