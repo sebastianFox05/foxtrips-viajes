@@ -204,24 +204,29 @@ Si el conector rechaza las credenciales, el usuario debe reconectar Netlify en *
 
 ## 9. Tareas pendientes
 
-### Las tiene que hacer el usuario
-- [ ] En Supabase, **Authentication → URL Configuration**:
-  - Site URL: `https://foxtrips-viajes.netlify.app`
-  - Redirect URLs: `https://foxtrips-viajes.netlify.app/**` y `http://localhost:5173/**`
+> Actualizado el 5 de noviembre: se hicieron las tareas que no necesitaban al usuario (marcadas con [x]).
 
-  Sin esto, el correo de "¿Olvidaste tu contraseña?" lleva a una dirección equivocada.
+### Hechas
+- [x] Supabase → URL Configuration: ya estaba bien (Site URL `https://foxtrips-viajes.netlify.app`, Redirect URLs de Netlify y localhost).
+- [x] Dirección y coordenadas de Glacé en el viaje oficial (camión de invierno en 30 Rockefeller Plaza, calle 49). "Soda Candy" no aparece como tienda; en la nota se sugiere IT'SUGAR (234 W 42nd St).
+- [x] Los DELETE de Realtime se filtran por viaje (`isDeleteOfTrip` en `store/supabase.js`).
+- [x] Borrado real de fotos en Cloudinary: función `netlify/functions/borrar-foto.mjs` (`POST /api/borrar-foto`), publicada. Comprueba la sesión y `can_edit` y solo borra dentro de `foxtrips/<viaje>/`.
+- [x] Repositorio git local (`main`, primer commit `f054b8a`) con `.gitignore`.
+- [x] Publicado en Netlify con el service worker en `foxtrips-v10`.
+
+### Las tiene que hacer el usuario
+- [ ] **Netlify → Project configuration → Environment variables**: crear `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` (de Cloudinary → Settings → API Keys) y volver a publicar. Hasta entonces la función responde 501 y la foto solo se quita del álbum.
 - [ ] Opcional: activar **Google** en Supabase (*Providers → Google*) con credenciales de Google Cloud, para que funcione "Continuar con Google".
 - [ ] Borrar, si quiere, los datos de prueba de "Nueva York en Familia" y revocar su enlace de invitación (*Grupo → Revocar todos los enlaces*).
 - [ ] Borrar la imagen de prueba `foxtrips/prueba-conexion` de la Media Library de Cloudinary.
-- [ ] Añadir la dirección de "Glacé + Soda Candy" y la hora del vuelo de vuelta en el viaje oficial.
+- [ ] Poner la hora del vuelo de vuelta y el aeropuerto (JFK o Newark) en "Traslado al aeropuerto" (4 de diciembre).
 - [ ] Revisar o eliminar las 20 sugerencias "💡" del viaje oficial.
-- [ ] Reservar ya el tren Lehigh Gorge (26 de noviembre, 11:00), el Night Tubing y los hoteles. Están en el equipaje común.
+- [ ] Reservar el tren Lehigh Gorge (26 de noviembre, 11:00), el Night Tubing y los hoteles. Están en el equipaje común. **El usuario pidió que Claude no haga este paso.**
 
 ### Mejoras técnicas posibles
-- [ ] Los eventos DELETE de Supabase Realtime no se pueden filtrar por viaje: provocan algún repintado de más. Es inofensivo, pero se podría optimizar.
-- [ ] Borrar una foto de Cloudinary desde la app solo la quita del álbum. Borrar el archivo exigiría una función de servidor con firma.
 - [ ] Sin conexión no se pueden guardar cambios para sincronizarlos después: no hay cola de cambios pendientes.
-- [ ] El conector GitHub falla ("Authorization header is badly formatted") y el proyecto no está en un repositorio git. Convendría versionarlo.
+- [ ] Subir el repositorio a GitHub. El conector GitHub falla ("Authorization header is badly formatted"); habría que reconectarlo o crear el repo a mano.
+- [ ] Borrar un viaje entero no borra sus fotos de Cloudinary (solo se borran foto a foto desde el álbum).
 - [ ] Opcional: dominio propio y cambiar el nombre del sitio de Netlify.
 
 ---
