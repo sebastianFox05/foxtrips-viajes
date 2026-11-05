@@ -219,8 +219,8 @@ Si el conector rechaza las credenciales, el usuario debe reconectar Netlify en *
 - [ ] Opcional: activar **Google** en Supabase (*Providers → Google*) con credenciales de Google Cloud, para que funcione "Continuar con Google".
 - [ ] Borrar, si quiere, los datos de prueba de "Nueva York en Familia" y revocar su enlace de invitación (*Grupo → Revocar todos los enlaces*).
 - [ ] Borrar la imagen de prueba `foxtrips/prueba-conexion` de la Media Library de Cloudinary.
-- [ ] Poner la hora del vuelo de vuelta y el aeropuerto (JFK o Newark) en "Traslado al aeropuerto" (4 de diciembre).
-- [ ] Revisar o eliminar las 20 sugerencias "💡" del viaje oficial.
+- [x] Vuelo de regreso: 4 de diciembre a las 9:30 AM desde JFK. El traslado pasó a "Salida Staten Island → aeropuerto JFK" a las 5:15 (hay que estar a las 6:30) y se añadió la actividad "Vuelo de regreso (JFK)" a las 9:30.
+- [x] Sugerencias "💡": el usuario decidió dejarlas como están. Ojo: "Mañana tranquila y maletas" (4 de diciembre, 9:30) choca con el vuelo.
 - [ ] Reservar el tren Lehigh Gorge (26 de noviembre, 11:00), el Night Tubing y los hoteles. Están en el equipaje común. **El usuario pidió que Claude no haga este paso.**
 
 ### Mejoras técnicas posibles
