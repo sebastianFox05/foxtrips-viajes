@@ -91,6 +91,7 @@ Las definiciones están en `Documents\Codex\2026-06-04\files-mentioned-by-the-us
 5. **Recomendaciones:**
    - top 5 de lo más visitado según el destino del viaje, **"Donde estoy"** (geolocalización) o una ciudad buscada;
    - desde cada plan: añadir al plan, proponerlo al grupo, cómo llegar y saber más.
+5b. **Historia de cada plan** (desde el 5 de noviembre): botón "Historia" en cada actividad. Busca en Wikipedia (español e inglés) el artículo del lugar por cercanía y por texto, y muestra "Por qué es famoso" (introducción) y "Su historia" (sección Historia), con enlace y licencia CC BY-SA. Probado con los 81 planes del viaje oficial: acierta en los lugares turísticos; en restaurantes, hoteles y traslados a veces no encuentra nada (es lo esperado) y en algunos muestra el barrio o el edificio cercano.
 6. **Frases útiles en inglés de EE. UU.:** 12 situaciones, unas 100 frases, pronunciación, voz (en-US), favoritas y consejos.
 7. **Votaciones:** proponer, votar y pasar al plan.
 8. **Diario** por día y **resumen final** del viaje.

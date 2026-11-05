@@ -6,6 +6,8 @@ grupo con invitaciones, historial, clima, conversor de moneda, exportación a PD
 **frases útiles en inglés de EE. UU.** (12 situaciones, con pronunciación, voz y favoritas) y
 **recomendaciones**: el top 5 de lo más visitado según el destino, la ciudad donde estás (ubicación del navegador) o
 cualquier ciudad que busques. Los carretes y las tiras de opciones tienen flechas para usarlos sin pantalla táctil.
+Cada plan del itinerario tiene un botón **Historia**: busca el lugar en Wikipedia (`assets/js/place-history.js`) y muestra
+por qué es famoso y un resumen de su historia, con enlace al artículo. Si no encuentra un artículo parecido, no muestra nada.
 
 Antes de entrar se muestra una **bienvenida** con fotos de viaje (se puede saltar) y después la pantalla de **acceso o registro**.
 

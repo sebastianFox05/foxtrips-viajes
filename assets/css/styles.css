@@ -3847,3 +3847,66 @@ svg {
   font-size: 0.75rem;
   line-height: 1.5;
 }
+
+/* --------------------------------------------------------------------------
+   37. Historia del lugar (history): ventana con "por que es famoso" y su historia
+   -------------------------------------------------------------------------- */
+.history {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.history__head {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.history__article {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.history__description {
+  color: var(--color-ink-soft);
+  font-size: 0.8125rem;
+}
+
+.history__block {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-m);
+  background: var(--color-surface-alt);
+}
+
+.history__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1rem;
+}
+
+.history__block p {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.history__empty {
+  color: var(--color-ink-soft);
+  line-height: 1.6;
+}
+
+.history__source {
+  color: var(--color-ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.history__source a {
+  color: inherit;
+  text-decoration: underline;
+}

@@ -8,8 +8,9 @@ import { icon } from '../icons.js';
 import { pictureHtml, uploadPhoto, hydrateMedia } from '../media.js';
 import { geocode } from '../services.js';
 import { renderComments, countFor } from '../comments.js';
-import { openModal, closeModal, confirmDialog, toast, toastError, withBusy } from '../ui.js';
-import { debounce, eachDay, esc, formatDay, formToObject, parseDay, sortActivities, today } from '../utils.js';
+import { placeHistory } from '../place-history.js';
+import { openModal, closeModal, confirmDialog, setModalBody, toast, toastError, withBusy } from '../ui.js';
+import { debounce, eachDay, esc, formatDay, formToObject, parseDay, safeUrl, sortActivities, today } from '../utils.js';
 
 const LOOSE_KEY = 'sin-dia';
 const VIEW_KEY = 'foxtrips:itinerary-view';
@@ -93,6 +94,7 @@ function activityHtml(activity, ctx, isPrint = false) {
         <footer class="activity__footer">
           <span>${activity.created_by_name ? `Añadido por ${esc(activity.created_by_name)}` : ''}</span>
           <div class="activity__actions">
+            <button class="btn btn--ghost btn--small" type="button" data-action="activity-history" data-id="${esc(activity.id)}" aria-label="Historia de ${esc(activity.title)}">${icon('book', 16)} Historia</button>
             <button class="btn btn--ghost btn--small" type="button" data-action="activity-comments" data-id="${esc(activity.id)}" aria-label="Comentarios de ${esc(activity.title)}: ${commentCount}">${icon('chat', 16)} ${commentCount}</button>
             ${activity.lat != null ? `<a class="btn btn--ghost btn--small btn--icon" href="#/viaje/${esc(ctx.trip.id)}/mapa?foco=${esc(activity.id)}" aria-label="Ver ${esc(activity.title)} en el mapa">${icon('map', 16)}</a>` : ''}
             ${ctx.canEdit ? `
@@ -366,6 +368,60 @@ async function deleteActivityHandler(button, event, ctx) {
   }
 }
 
+/* ---- Historia del lugar (Wikipedia) ---- */
+
+function paragraphsHtml(text) {
+  return text.split(/\n+/).filter((line) => line.trim()).map((line) => `<p>${esc(line.trim())}</p>`).join('');
+}
+
+function historyHtml(history) {
+  return `
+    <article class="history">
+      <header class="history__head">
+        <p class="history__article">${icon('book', 16)} ${esc(history.title)}</p>
+        ${history.description ? `<p class="history__description">${esc(history.description)}</p>` : ''}
+      </header>
+      <section class="history__block" aria-labelledby="historyFamous">
+        <h3 class="history__heading" id="historyFamous">${icon('star', 16)} Por qué es famoso</h3>
+        ${paragraphsHtml(history.intro)}
+      </section>
+      ${history.history ? `
+        <section class="history__block" aria-labelledby="historyPast">
+          <h3 class="history__heading" id="historyPast">${icon('clock', 16)} Su historia</h3>
+          ${paragraphsHtml(history.history)}
+        </section>` : ''}
+      <p class="history__source">
+        ${history.lang === 'en' ? 'Este lugar solo tiene artículo en inglés. ' : ''}
+        Fuente: <a href="${esc(safeUrl(history.url))}" target="_blank" rel="noopener">Wikipedia, artículo completo</a> · Texto con licencia CC BY-SA 4.0.
+      </p>
+    </article>`;
+}
+
+function emptyHistoryHtml(activity) {
+  const search = `https://es.wikipedia.org/w/index.php?search=${encodeURIComponent(activity.place || activity.title)}`;
+  return `
+    <div class="history">
+      <p class="history__empty">No encontramos la historia de este lugar en Wikipedia. Suele pasar con restaurantes, hoteles, traslados o sitios muy nuevos.</p>
+      <p class="history__source"><a href="${esc(search)}" target="_blank" rel="noopener">Buscarlo en Wikipedia</a></p>
+    </div>`;
+}
+
+async function activityHistoryHandler(button) {
+  const activity = activities.find((item) => item.id === button.dataset.id);
+  if (!activity) return;
+  openModal(activity.title, '<p class="loading">Buscando la historia de este lugar…</p>');
+  let html;
+  try {
+    const history = await placeHistory(activity);
+    html = history ? historyHtml(history) : emptyHistoryHtml(activity);
+  } catch (error) {
+    html = `<p class="history__empty">${esc(error.message)}</p>`;
+  }
+  // Si mientras se buscaba se cerro el modal o se abrio otro, no se pisa
+  const modal = document.getElementById('modal');
+  if (modal?.open && document.getElementById('modalTitle')?.textContent === activity.title) setModalBody(html);
+}
+
 async function activityCommentsHandler(button, event, ctx) {
   const activity = activities.find((item) => item.id === button.dataset.id);
   openModal(activity.title, `<div data-comments="activity:${esc(activity.id)}"><p class="loading">Cargando…</p></div>`);
@@ -426,7 +482,8 @@ export default {
     'new-activity': newActivityHandler,
     'edit-activity': editActivityHandler,
     'delete-activity': deleteActivityHandler,
-    'activity-comments': activityCommentsHandler
+    'activity-comments': activityCommentsHandler,
+    'activity-history': activityHistoryHandler
   },
   forms: { 'save-activity': saveActivityHandler }
 };
