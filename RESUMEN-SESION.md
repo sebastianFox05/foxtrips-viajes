@@ -154,7 +154,7 @@ Durante la sesión se creó todo el proyecto. Este documento es el único archiv
 | `manifest.webmanifest`, `sw.js` | PWA. El service worker usa red primero para los archivos propios y caché primero para las librerías. |
 | `netlify.toml` | Build hacia `dist/` y cabeceras (sin caché para `sw.js`, seguridad básica) |
 | `assets/css/styles.css` | Estilos BEM comentados por bloques (secciones 1–36 y añadidos) |
-| `assets/img/icono.svg`, `icono-192.png`, `icono-512.png` | Logo del zorro |
+| `assets/img/logo.png`, `favicon-48.png`, `icono-192.png`, `icono-512.png`, `icono-maskable-512.png`, `apple-touch-icon.png` | Logo del zorro de colores (desde el 5 de noviembre), sin fondo |
 | `assets/js/app.js` | Enrutador por hash, contexto del viaje, tiempo real, delegación de eventos, foco y repintado numerado |
 | `assets/js/config.js` | URL y clave pública de Supabase, cloud y preset de Cloudinary |
 | `assets/js/store/index.js`, `local.js`, `supabase.js` | Almacén con la misma API en modo local y en la nube |

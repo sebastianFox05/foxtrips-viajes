@@ -161,7 +161,7 @@ export default {
         <h1 class="visually-hidden">FoxTrips: viajes en grupo</h1>
         <div class="welcome__track" id="welcomeTrack">${SLIDES.map(slideHtml).join('')}</div>
         <header class="welcome__brand" aria-hidden="true">
-          <img class="welcome__logo" src="assets/img/icono.svg" alt="" width="34" height="34">
+          <img class="welcome__logo" src="assets/img/logo.png" alt="" width="34" height="34">
           <span>FoxTrips</span>
         </header>
         <footer class="welcome__controls">

@@ -77,7 +77,7 @@ function visualHtml() {
         ${slides}
         <figcaption class="auth-visual__brand">
           <span class="auth-visual__logo">
-            <img src="assets/img/icono.svg" alt="" width="30" height="30">
+            <img src="assets/img/logo.png" alt="" width="30" height="30">
             FoxTrips <span class="auth-visual__badge">Viajes</span>
           </span>
           <span class="auth-visual__tagline">Planead, votad y guardad cada recuerdo con tu gente.</span>
