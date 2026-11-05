@@ -173,6 +173,9 @@ export default function App() {
     classList.toggle('has-bottom-nav', hasBottomNav);
     classList.toggle('is-trip', route.name === 'trip' || route.name === 'public');
     classList.toggle('is-auth', isAuthScreen);
+    // La bienvenida ocupa justo la pantalla: la pagina de detras no debe poder desplazarse
+    classList.toggle('is-welcome', route.name === 'welcome');
+    document.documentElement.classList.toggle('is-welcome', route.name === 'welcome');
     if (route.name !== 'trip') document.title = 'FoxTrips · Viajes en grupo';
   }, [hasBottomNav, route.name, isAuthScreen]);
 

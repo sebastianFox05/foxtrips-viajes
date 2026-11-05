@@ -3099,11 +3099,24 @@ svg {
 /* --------------------------------------------------------------------------
    32. Bienvenida (welcome): carrusel de fotos a pantalla completa
    -------------------------------------------------------------------------- */
+/* Con la bienvenida abierta, la pagina no se desplaza (en la app instalada aparecia un scroll vertical) */
+html.is-welcome,
+body.is-welcome {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .welcome {
   position: fixed;
   inset: 0;
   z-index: 50;
+  /* Alto exacto de la pantalla visible (dvh) en moviles y en la app instalada */
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   /* Degradado mientras carga la primera foto */
   background: linear-gradient(180deg, #3d4a3a 0%, #1e2420 60%, #0b0b0c 100%);
   color: #fff;
@@ -3113,9 +3126,12 @@ svg {
   display: flex;
   height: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  overscroll-behavior-x: contain;
+  overscroll-behavior: none;
+  /* Solo se desliza de lado: arrastrar hacia arriba o abajo no mueve nada */
+  touch-action: pan-x;
 }
 
 .welcome__track::-webkit-scrollbar {
@@ -3296,6 +3312,65 @@ svg {
 .welcome :focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;
+}
+
+/* Pantallas bajas (iPhone SE, moviles en horizontal): el texto se reduce para caber sin desplazarse */
+@media (max-height: 720px) {
+  .welcome__content {
+    bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+
+  .welcome__title {
+    font-size: clamp(2rem, 1.4rem + 2.6vw, 3rem);
+  }
+
+  .welcome__text {
+    margin-top: var(--space-3);
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .welcome__controls {
+    gap: 14px;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .welcome__brand {
+    top: calc(18px + env(safe-area-inset-top));
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-height: 520px) {
+  .welcome__content {
+    bottom: calc(108px + env(safe-area-inset-bottom));
+  }
+
+  .welcome__title {
+    display: block;
+    font-size: 1.6rem;
+  }
+
+  .welcome__title span + span::before {
+    content: " ";
+  }
+
+  .welcome__text {
+    max-width: 60ch;
+  }
+
+  .welcome__controls {
+    gap: 6px;
+  }
+
+  .welcome__arrow,
+  .welcome__start {
+    height: 46px;
+  }
+
+  .welcome__arrow {
+    width: 46px;
+  }
 }
 
 @media (min-width: 900px) {
