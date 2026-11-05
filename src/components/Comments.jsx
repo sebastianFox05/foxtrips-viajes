@@ -19,12 +19,18 @@ export function countFor(comments, targetType, targetId) {
   return comments.filter((comment) => comment.target_type === targetType && comment.target_id === targetId).length;
 }
 
-export default function Comments({ tripId, targetType, targetId, headingLevel = 3 }) {
+export default function Comments({ tripId, targetType, targetId, headingLevel = 3, isAutoFocus = false }) {
   const { toastError } = useUi();
   const [comments, setComments] = useState(null);
   const [body, setBody] = useState('');
   const fieldId = `comment-${targetId}`;
   const Heading = `h${headingLevel}`;
+  const isLoaded = comments !== null;
+
+  // En el modal del plan, al cargar se pone el cursor en el campo (como antes)
+  useEffect(() => {
+    if (isAutoFocus && isLoaded) document.getElementById(fieldId)?.focus();
+  }, [isAutoFocus, isLoaded, fieldId]);
 
   const load = useCallback(async () => {
     const all = await store.list('comments', tripId);

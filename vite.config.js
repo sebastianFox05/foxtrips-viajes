@@ -24,10 +24,17 @@ export default defineConfig({
       manifest: false,
       includeAssets: ['assets/img/*.png', 'manifest.webmanifest'],
       workbox: {
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        globPatterns: ['**/*.{js,css,html,png,webmanifest}'],
+        // La pagina (index.html) NO se precarga: se pide primero a la red para que lleguen siempre
+        // las cabeceras de seguridad nuevas (CSP). Sin conexion se usa la ultima copia guardada.
+        navigateFallback: null,
+        globPatterns: ['**/*.{js,css,png,webmanifest}'],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/api/'),
+            handler: 'NetworkFirst',
+            options: { cacheName: 'foxtrips-paginas', networkTimeoutSeconds: 4, expiration: { maxEntries: 5 } }
+          },
           {
             // Fuentes de Google: cache primero
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
@@ -37,7 +44,7 @@ export default defineConfig({
           {
             // Fotos externas (Wikimedia, Cloudinary) y teselas del mapa: cache primero
             urlPattern: ({ url, request }) => request.destination === 'image'
-              && ['upload.wikimedia.org', 'res.cloudinary.com', 'tile.openstreetmap.org'].some((host) => url.hostname.endsWith(host)),
+              && ['wikimedia.org', 'res.cloudinary.com', 'tile.openstreetmap.org'].some((host) => url.hostname.endsWith(host)),
             handler: 'CacheFirst',
             options: { cacheName: 'foxtrips-fotos', expiration: { maxEntries: 400, maxAgeSeconds: MONTH }, cacheableResponse: { statuses: [0, 200] } }
           }

@@ -435,7 +435,7 @@ export default function ItineraryView() {
       }
     },
     comments(activity) {
-      openModal(activity.title, <div><Comments tripId={tripId} targetType="activity" targetId={activity.id} headingLevel={3} /></div>);
+      openModal(activity.title, <div><Comments tripId={tripId} targetType="activity" targetId={activity.id} headingLevel={3} isAutoFocus /></div>);
     },
     history(activity) {
       openModal(activity.title, <HistoryContent activity={activity} />);
