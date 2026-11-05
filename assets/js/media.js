@@ -94,14 +94,23 @@ export async function uploadPhoto(tripId, file) {
  * netlify/functions/borrar-foto.mjs. Hay que llamarla ANTES de borrar la fila (la funcion la comprueba).
  * Si la funcion no esta disponible (en local, o sin claves en Netlify), la foto solo se quita del album.
  */
-async function deleteCloudinaryFile(photo) {
+async function callDeleteEndpoint(payload) {
   const token = await store.accessToken?.();
   if (!token) return;
   await fetch(DELETE_ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ photoId: photo.id })
+    body: JSON.stringify(payload)
   });
+}
+
+function deleteCloudinaryFile(photo) {
+  return callDeleteEndpoint({ photoId: photo.id });
+}
+
+/* Al eliminar un viaje: borra su carpeta foxtrips/<viaje>/ en Cloudinary (solo la persona organizadora) */
+export async function deleteTripFiles(tripId) {
+  if (hasCloudinary) await callDeleteEndpoint({ tripId });
 }
 
 export async function deletePhotoFile(photo) {

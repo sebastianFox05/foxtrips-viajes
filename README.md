@@ -43,6 +43,7 @@ Si no configuras Cloudinary, las fotos se guardan en Supabase Storage (1 GB en e
 Las fotos se comprimen en el navegador (máximo 2048 px, WebP) antes de subirse, unos 300–500 KB por foto.
 
 > Al borrar una foto del álbum, la función de Netlify `netlify/functions/borrar-foto.mjs` borra también el archivo en Cloudinary.
+> Al eliminar un viaje, la misma función borra toda su carpeta `foxtrips/<viaje>/`. Esto solo lo puede hacer quien organiza el viaje.
 > Para eso necesita dos variables de entorno en Netlify → *Project configuration → Environment variables*:
 > `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` (Cloudinary → *Settings → API Keys*). Ponlas tú: el secreto nunca va en el código.
 > Sin ellas (o en local) la foto solo se quita del álbum y el archivo queda en Cloudinary → Media Library.

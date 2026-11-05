@@ -226,7 +226,8 @@ Si el conector rechaza las credenciales, el usuario debe reconectar Netlify en *
 ### Mejoras técnicas posibles
 - [ ] Sin conexión no se pueden guardar cambios para sincronizarlos después: no hay cola de cambios pendientes.
 - [ ] Subir el repositorio a GitHub. El conector GitHub falla ("Authorization header is badly formatted"); habría que reconectarlo o crear el repo a mano.
-- [ ] Borrar un viaje entero no borra sus fotos de Cloudinary (solo se borran foto a foto desde el álbum).
+- [x] Eliminar un viaje borra también su carpeta `foxtrips/<viaje>/` en Cloudinary (`{ tripId }` en `/api/borrar-foto`, solo la persona organizadora). Probado en producción con un viaje temporal: 200 en el viaje propio y 403 en uno que ya no existe.
+- [x] El usuario borró el viaje de prueba "Nueva York en Familia". Sus 3 fotos quedaron huérfanas en Cloudinary (carpeta `foxtrips/f16d4955-d361-478b-b5ba-d11efeedb494`) porque se borró antes de que existiera esta mejora. **Falta que el usuario borre esa carpeta y `foxtrips/prueba-conexion` en la Media Library.**
 - [ ] Opcional: dominio propio y cambiar el nombre del sitio de Netlify.
 
 ---

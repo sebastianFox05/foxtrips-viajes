@@ -1,7 +1,7 @@
 /* Inicio: saludo, buscador, filtros y tarjetas de viaje. Incluye el formulario de crear/editar viaje. */
 import { store } from '../store/index.js';
 import { icon } from '../icons.js';
-import { pictureHtml, uploadPhoto } from '../media.js';
+import { pictureHtml, uploadPhoto, deleteTripFiles } from '../media.js';
 import { CURRENCIES } from '../services.js';
 import { bestCity, CITY_CODES, normalize } from '../places.js';
 import { registerSuggestions } from '../autocomplete.js';
@@ -221,6 +221,8 @@ export async function deleteTripFlow(trip) {
   const isConfirmed = await confirmDialog(`Se borrará "${trip.name}" con su itinerario, fotos y documentos para todo el grupo.`);
   if (!isConfirmed) return;
   try {
+    // Primero las fotos de Cloudinary: el servidor comprueba que el viaje aun existe y que eres quien organiza
+    await deleteTripFiles(trip.id).catch(() => null);
     await store.deleteTrip(trip.id);
     toast('Viaje eliminado');
     location.hash = '#/';

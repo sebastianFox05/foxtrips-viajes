@@ -149,3 +149,5 @@ Encontrado al probar (fuera de la revision): al salir de un viaje al inicio qued
 | 10:25 | — | Supabase | verificado | Site URL y Redirect URLs ya estaban configuradas. |
 | 10:30 | — | datos | hecho | Viaje oficial: direccion y coordenadas de Glacé (30 Rockefeller Plaza). |
 | 10:35 | — | `.gitignore`, git | hecho | Repositorio git local con el primer commit. |
+| 11:30 | Javascript | `netlify/functions/borrar-foto.mjs`, `media.js` (`deleteTripFiles`), `views/trips.js`, `sw.js` (v11) | hecho | Eliminar un viaje borra su carpeta de Cloudinary (Admin API por prefijo, solo `is_owner`). Se llama antes de borrar el viaje. |
+| 11:40 | Review | — | hecho | Probado en local (501/400/403/404) y en produccion con un viaje temporal (200 propio, 403 viaje inexistente). |

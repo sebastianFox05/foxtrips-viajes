@@ -3,7 +3,7 @@
  * Red primero para los archivos propios y cache primero para librerias y fotos externas;
  * los datos del viaje los guarda en cache el propio almacen (store/supabase.js).
  */
-const CACHE = 'foxtrips-v10';
+const CACHE = 'foxtrips-v11';
 const SHELL = [
   './',
   'index.html',
