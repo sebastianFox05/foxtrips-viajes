@@ -215,7 +215,7 @@ Si el conector rechaza las credenciales, el usuario debe reconectar Netlify en *
 - [x] Publicado en Netlify con el service worker en `foxtrips-v10`.
 
 ### Las tiene que hacer el usuario
-- [ ] **Netlify → Project configuration → Environment variables**: crear `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` (de Cloudinary → Settings → API Keys) y volver a publicar. Hasta entonces la función responde 501 y la foto solo se quita del álbum.
+- [x] Variables `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` creadas por el usuario en Netlify y publicadas de nuevo. Probado en producción con una foto temporal que apuntaba a un archivo inexistente: Cloudinary aceptó la firma y respondió `not found`, y la fila temporal se quitó.
 - [ ] Opcional: activar **Google** en Supabase (*Providers → Google*) con credenciales de Google Cloud, para que funcione "Continuar con Google".
 - [ ] Borrar, si quiere, los datos de prueba de "Nueva York en Familia" y revocar su enlace de invitación (*Grupo → Revocar todos los enlaces*).
 - [ ] Borrar la imagen de prueba `foxtrips/prueba-conexion` de la Media Library de Cloudinary.
