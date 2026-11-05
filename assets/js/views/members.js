@@ -100,7 +100,7 @@ export default {
             const isLastOwner = member.role === 'owner' && owners === 1;
             return `
               <li class="row">
-                ${avatarHtml(member.name, 'avatar--lg')}
+                ${avatarHtml(member.name, 'avatar--lg', member.user_id)}
                 <div class="row__body">
                   <p class="row__title">${esc(member.name)}${isMe ? ' (tú)' : ''}</p>
                   <p class="row__meta">${roleLabel(member.role)}</p>

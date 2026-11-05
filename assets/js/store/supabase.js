@@ -58,8 +58,9 @@ function check({ data, error }) {
 }
 
 async function loadProfile(user) {
-  const { data } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
-  return { id: user.id, email: user.email, name: data?.display_name || user.email.split('@')[0] };
+  // select('*'): si la columna avatar_url aun no existe en la base de datos, todo sigue funcionando
+  const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  return { id: user.id, email: user.email, name: data?.display_name || user.email.split('@')[0], avatar_url: data?.avatar_url || null };
 }
 
 /*
@@ -139,6 +140,12 @@ const supabaseStore = {
     return data.session?.access_token || null;
   },
 
+  /* Foto de perfil: URL https o null para quitarla */
+  async updateAvatar(url) {
+    check(await supabase.from('profiles').update({ avatar_url: url }).eq('id', currentUser.id));
+    currentUser = { ...currentUser, avatar_url: url };
+  },
+
   async signOut() {
     await supabase.auth.signOut();
     currentUser = null;
@@ -202,8 +209,8 @@ const supabaseStore = {
 
   async listMembers(tripId) {
     const rows = await cached(`members:${tripId}`, () =>
-      supabase.from('trip_members').select('user_id, role, profiles(display_name)').eq('trip_id', tripId));
-    return rows.map((row) => ({ user_id: row.user_id, role: row.role, name: row.profiles?.display_name || 'Viajero' }));
+      supabase.from('trip_members').select('user_id, role, profiles(*)').eq('trip_id', tripId));
+    return rows.map((row) => ({ user_id: row.user_id, role: row.role, name: row.profiles?.display_name || 'Viajero', avatar_url: row.profiles?.avatar_url || null }));
   },
 
   async setMemberRole(tripId, userId, role) {

@@ -9,7 +9,7 @@ import { closeLightbox } from './lightbox.js';
 import { initScrollers } from './scroller.js';
 import { initAutocomplete } from './autocomplete.js';
 import { closeModal, resolveConfirm, toastError } from './ui.js';
-import { avatarHtml, debounce, esc } from './utils.js';
+import { avatarHtml, debounce, esc, registerAvatars } from './utils.js';
 import tripsView from './views/trips.js';
 import { loginView, profileView, joinView, recoveryView, rememberInvite } from './views/auth.js';
 import { heroHtml, tabsHtml, bottomNavHtml, homeBottomNavHtml, moreView, shellActions, shellForms, canEdit, SECTIONS } from './views/shell.js';
@@ -114,8 +114,9 @@ function resolveRoute({ parts }) {
 
 function renderChrome(route) {
   const user = store.user;
+  if (user) registerAvatars([user]);
   userArea.innerHTML = user
-    ? `<span class="site-header__name">${esc(user.name)}</span><a href="#/perfil" aria-label="Tu perfil">${avatarHtml(user.name)}</a>`
+    ? `<span class="site-header__name">${esc(user.name)}</span><a href="#/perfil" aria-label="Tu perfil">${avatarHtml(user.name, '', user.id)}</a>`
     : '';
   const isAuthScreen = route.name === 'login' || route.name === 'welcome';
   // Navegacion principal: solo con sesion, y marcando la seccion actual
@@ -150,6 +151,7 @@ function setTitle(route) {
 async function loadTrip(id) {
   const [trip, members] = await Promise.all([store.getTrip(id), store.listMembers(id).catch(() => [])]);
   if (!trip) return null;
+  registerAvatars(members.map((member) => ({ id: member.user_id, name: member.name, avatar_url: member.avatar_url })));
   return {
     trip,
     tripId: id,

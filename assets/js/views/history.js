@@ -14,7 +14,7 @@ export default {
       <section class="card">
         ${log.length ? `<ol class="timeline">${log.map((entry) => `
           <li class="timeline__item">
-            ${avatarHtml(entry.actor_name)}
+            ${avatarHtml(entry.actor_name, '', entry.actor_id)}
             <div class="timeline__body">
               <p><strong>${esc(entry.actor_name || 'Alguien')}</strong> ${esc(entry.text)}</p>
               <time class="timeline__time" datetime="${esc(entry.created_at)}" title="${esc(formatDateTime(entry.created_at))}">${esc(timeAgo(entry.created_at))}</time>

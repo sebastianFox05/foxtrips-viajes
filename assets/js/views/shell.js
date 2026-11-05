@@ -37,7 +37,7 @@ export function heroHtml(ctx, sectionKey) {
       <p class="glass__meta">
         <span>${icon('calendar', 16)} ${esc(formatRange(trip.start_date, trip.end_date))}</span>
         ${days ? `<span>${icon('clock', 16)} ${days} días</span>` : ''}
-        <span>${avatarStackHtml(members.map((member) => member.name), 4)} ${members.length} viajero${members.length === 1 ? '' : 's'}</span>
+        <span>${avatarStackHtml(members, 4)} ${members.length} viajero${members.length === 1 ? '' : 's'}</span>
       </p>
       ${trip.description ? `<p class="glass__text">${esc(trip.description)}</p>` : ''}
       <div class="glass__actions">

@@ -15,6 +15,14 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Foto de perfil (URL de Cloudinary o Supabase Storage). Añadida el 5 nov 2026; el script se puede volver a ejecutar.
+alter table public.profiles add column if not exists avatar_url text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_avatar_url_https') then
+    alter table public.profiles add constraint profiles_avatar_url_https check (avatar_url is null or avatar_url like 'https://%');
+  end if;
+end $$;
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin

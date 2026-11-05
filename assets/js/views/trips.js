@@ -6,7 +6,7 @@ import { CURRENCIES } from '../services.js';
 import { bestCity, CITY_CODES, normalize } from '../places.js';
 import { registerSuggestions } from '../autocomplete.js';
 import { openModal, closeModal, toast, toastError, withBusy, confirmDialog } from '../ui.js';
-import { avatarStackHtml, daysBetween, esc, formatRange, formToObject, tripStatus } from '../utils.js';
+import { avatarStackHtml, daysBetween, esc, formatRange, formToObject, registerAvatars, tripStatus } from '../utils.js';
 import { createDemoTrip } from '../demo.js';
 
 const FILTERS = [
@@ -26,7 +26,7 @@ let membersByTrip = {};
 function tripCardHtml(trip, position) {
   const status = tripStatus(trip);
   const days = trip.start_date && trip.end_date ? daysBetween(trip.start_date, trip.end_date) + 1 : 0;
-  const names = (membersByTrip[trip.id] || []).map((member) => member.name);
+  const people = membersByTrip[trip.id] || [];
   return `
     <li>
       <article class="photo-card ${position === 0 ? 'photo-card--tall' : ''}">
@@ -36,7 +36,7 @@ function tripCardHtml(trip, position) {
           <h3 class="photo-card__title"><a class="photo-card__link" href="#/viaje/${esc(trip.id)}">${esc(trip.name)}</a></h3>
           <div class="photo-card__footer">
             <span class="photo-card__place">${icon('pin', 16)} ${esc(trip.destination || 'Destino por decidir')}</span>
-            ${avatarStackHtml(names)}
+            ${avatarStackHtml(people)}
           </div>
         </div>
         <span class="photo-card__badge">${esc(status.label)}</span>
@@ -240,6 +240,7 @@ export default {
     trips = [...notPast, ...past.reverse()];
     const members = await Promise.all(trips.map((trip) => store.listMembers(trip.id).catch(() => [])));
     membersByTrip = Object.fromEntries(trips.map((trip, position) => [trip.id, members[position]]));
+    registerAvatars(members.flat().map((member) => ({ id: member.user_id, name: member.name, avatar_url: member.avatar_url })));
     const firstName = store.user.name.split(' ')[0];
     return `
       <section class="home-head">

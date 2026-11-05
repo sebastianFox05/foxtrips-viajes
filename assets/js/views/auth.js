@@ -4,8 +4,8 @@
  */
 import { store } from '../store/index.js';
 import { icon } from '../icons.js';
-import { photoProvider } from '../media.js';
-import { toast, toastError, withBusy } from '../ui.js';
+import { cleanupAvatars, photoProvider, uploadAvatar } from '../media.js';
+import { confirmDialog, toast, toastError, withBusy } from '../ui.js';
 import { avatarHtml, esc, formToObject } from '../utils.js';
 import { photoSources } from './welcome.js';
 
@@ -262,6 +262,35 @@ async function saveProfileHandler(form, ctx, submitter) {
   ctx.reloadApp();
 }
 
+/* Foto de perfil: se sube, se guarda en el perfil y despues se borran las anteriores de Cloudinary */
+async function avatarFileHandler(input, ctx) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  const labelText = document.querySelector('[data-avatar-label] span');
+  if (labelText) labelText.textContent = ' Subiendo…';
+  try {
+    const { url, publicId } = await uploadAvatar(store.user.id, file);
+    await store.updateAvatar(url);
+    cleanupAvatars(publicId).catch(() => null);
+    toast('Foto de perfil actualizada');
+  } catch (error) {
+    toastError(new Error(/avatar_url/.test(error.message)
+      ? 'La base de datos aún no tiene el campo de foto de perfil: hay que ejecutar el SQL actualizado en Supabase.'
+      : error.message));
+  }
+  ctx.reloadApp();
+}
+
+async function removeAvatarHandler(button, event, ctx) {
+  const isConfirmed = await confirmDialog('Se quitará tu foto de perfil y volverán a verse tus iniciales.');
+  if (!isConfirmed) return;
+  await withBusy(button, () => store.updateAvatar(null));
+  cleanupAvatars().catch(() => null);
+  toast('Foto de perfil quitada');
+  ctx.reloadApp();
+}
+
 async function signOutHandler(button, event, ctx) {
   await store.signOut();
   location.hash = '#/acceso';
@@ -333,7 +362,7 @@ export const profileView = {
     return `
       <div class="page-head">
         <div class="home-head">
-          ${avatarHtml(user.name, 'avatar--lg')}
+          ${avatarHtml(user.name, 'avatar--lg', user.id)}
           <div>
             <h1>${esc(user.name)}</h1>
             ${user.email ? `<p class="page-head__subtitle">${esc(user.email)}</p>` : ''}
@@ -341,6 +370,19 @@ export const profileView = {
         </div>
       </div>
       <div class="grid grid--2">
+        <section class="card" aria-labelledby="avatarTitle">
+          <h2 class="card__title" id="avatarTitle">Tu foto de perfil</h2>
+          <p class="card__text">Así el grupo te reconoce en los viajes, los comentarios y el historial.</p>
+          <div class="profile-photo">
+            ${avatarHtml(user.name, 'avatar--xl', user.id)}
+            <div class="profile-photo__actions">
+              <input class="visually-hidden" id="avatarFile" type="file" accept="image/*" data-input="avatar-file">
+              <label class="btn btn--primary" for="avatarFile" data-avatar-label>${icon('upload', 18)}<span> ${user.avatar_url ? 'Cambiar foto' : 'Subir foto'}</span></label>
+              ${user.avatar_url ? `<button class="btn" type="button" data-action="remove-avatar">${icon('trash', 18)} Quitar foto</button>` : ''}
+            </div>
+          </div>
+          <p class="form__help">Se recorta en cuadrado y se reduce antes de subirla.</p>
+        </section>
         <section class="card">
           <h2 class="card__title">Tu nombre</h2>
           <form class="form" data-form="save-profile">
@@ -361,7 +403,8 @@ export const profileView = {
         </section>
       </div>`;
   },
-  actions: { 'sign-out': signOutHandler },
+  actions: { 'sign-out': signOutHandler, 'remove-avatar': removeAvatarHandler },
+  inputs: { 'avatar-file': avatarFileHandler },
   forms: { 'save-profile': saveProfileHandler }
 };
 

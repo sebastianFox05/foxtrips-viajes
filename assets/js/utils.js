@@ -116,19 +116,48 @@ export function initials(name) {
   return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
 }
 
-export function avatarHtml(name, extraClass = '') {
+/* Fotos de perfil conocidas: por id de usuario y, de respaldo, por nombre (comentarios e historial guardan el nombre) */
+const avatarPhotos = new Map();
+
+/* Solo https o imagenes en linea (modo local): nada de "javascript:" */
+function avatarSrc(value) {
+  const text = String(value || '');
+  if (/^data:image\/(webp|jpeg|png);base64,/.test(text)) return text;
+  return /^https:\/\//.test(text) ? safeUrl(text) : '';
+}
+
+/* Registra personas { id, name, avatar_url } para que avatarHtml muestre su foto */
+export function registerAvatars(people) {
+  for (const person of people) {
+    if (!person) continue;
+    const src = avatarSrc(person.avatar_url);
+    const keys = [person.id, person.name ? `name:${person.name.toLowerCase()}` : null].filter(Boolean);
+    for (const key of keys) {
+      if (src) avatarPhotos.set(key, src);
+      else avatarPhotos.delete(key);
+    }
+  }
+}
+
+export function avatarHtml(name, extraClass = '', userId = null) {
   const text = String(name || '?');
+  const photo = (userId && avatarPhotos.get(userId)) || avatarPhotos.get(`name:${text.toLowerCase()}`);
+  if (photo) {
+    return `<span class="avatar avatar--photo ${extraClass}" title="${esc(text)}" aria-hidden="true"><img class="avatar__img" src="${esc(photo)}" alt="" loading="lazy" decoding="async"></span>`;
+  }
   let hash = 0;
   for (const char of text) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   const hue = AVATAR_HUES[hash % AVATAR_HUES.length];
   return `<span class="avatar ${extraClass}" style="--avatar-hue:${hue}" title="${esc(text)}" aria-hidden="true">${esc(initials(text))}</span>`;
 }
 
-export function avatarStackHtml(names, max = 3) {
-  if (!names.length) return '';
-  const shown = names.slice(0, max).map((name) => avatarHtml(name)).join('');
-  const rest = names.length > max ? `<span class="avatar-stack__more">+${names.length - max}</span>` : '';
-  return `<span class="avatar-stack" aria-label="${esc(names.join(', '))}">${shown}${rest}</span>`;
+/* people: nombres o { name, user_id } */
+export function avatarStackHtml(people, max = 3) {
+  if (!people.length) return '';
+  const list = people.map((person) => (typeof person === 'string' ? { name: person } : person));
+  const shown = list.slice(0, max).map((person) => avatarHtml(person.name, '', person.user_id)).join('');
+  const rest = list.length > max ? `<span class="avatar-stack__more">+${list.length - max}</span>` : '';
+  return `<span class="avatar-stack" aria-label="${esc(list.map((person) => person.name).join(', '))}">${shown}${rest}</span>`;
 }
 
 /* ---- Varios ---- */

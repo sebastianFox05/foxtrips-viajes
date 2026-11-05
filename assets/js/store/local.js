@@ -107,7 +107,7 @@ const localStore = {
       db.profiles.push(profile);
       writeDb(db);
     }
-    currentUser = { id: profile.id, name: profile.display_name };
+    currentUser = { id: profile.id, name: profile.display_name, avatar_url: profile.avatar_url || null };
     localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
     return currentUser;
   },
@@ -123,6 +123,16 @@ const localStore = {
   async signOut() {
     currentUser = null;
     localStorage.removeItem(USER_KEY);
+  },
+
+  /* Foto de perfil (en modo local es una imagen pequeña en linea) o null para quitarla */
+  async updateAvatar(url) {
+    const db = readDb();
+    const profile = db.profiles.find((item) => item.id === currentUser.id);
+    if (profile) profile.avatar_url = url;
+    writeDb(db);
+    currentUser = { ...currentUser, avatar_url: url };
+    localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
   },
 
   async updateName(name) {
@@ -216,7 +226,8 @@ const localStore = {
       .map((member) => ({
         user_id: member.user_id,
         role: member.role,
-        name: db.profiles.find((profile) => profile.id === member.user_id)?.display_name || 'Viajero'
+        name: db.profiles.find((profile) => profile.id === member.user_id)?.display_name || 'Viajero',
+        avatar_url: db.profiles.find((profile) => profile.id === member.user_id)?.avatar_url || null
       }));
   },
 

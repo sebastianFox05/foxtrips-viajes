@@ -9,6 +9,7 @@
  *                 y el archivo esta en la carpeta de ese viaje (foxtrips/<id del viaje>/…).
  *   { tripId }  → borra TODA la carpeta foxtrips/<id del viaje>/ (al eliminar un viaje).
  *                 Solo si la persona es la organizadora del viaje (is_owner).
+ *   { avatars: true, keep } → borra tus fotos de perfil anteriores (foxtrips/avatars/<tu usuario>/) menos "keep".
  * En ambos casos se usa la sesion de Supabase de quien llama (RLS): la app la llama ANTES de borrar la fila.
  *
  * Variables de entorno (Netlify → Project configuration → Environment variables):
@@ -85,6 +86,29 @@ async function deletePhoto(photoId, token, keys) {
   return result ? reply(200, { result }) : reply(502, { error: 'Cloudinary no pudo borrar la foto.' });
 }
 
+/* Usuario de la sesion (Supabase Auth): { id } o null */
+async function sessionUser(token) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+  return response.ok ? response.json() : null;
+}
+
+/* Fotos de perfil: borra las de foxtrips/avatars/<tu usuario>/ menos la actual (keep) */
+async function deleteOldAvatars(keep, token, keys) {
+  const user = await sessionUser(token);
+  if (!UUID.test(user?.id || '')) return reply(401, { error: 'Tu sesión no es válida. Vuelve a entrar.' });
+  const prefix = `foxtrips/avatars/${user.id}/`;
+  if (keep && !keep.startsWith(prefix)) return reply(400, { error: 'Esa foto no es tuya.' });
+  const auth = `Basic ${Buffer.from(`${keys.apiKey}:${keys.apiSecret}`).toString('base64')}`;
+  const list = await fetch(`${CLOUDINARY_API}/resources/image/upload?prefix=${encodeURIComponent(prefix)}&max_results=100`, { headers: { Authorization: auth } });
+  const data = await list.json().catch(() => ({}));
+  if (!list.ok) return reply(502, { error: 'Cloudinary no respondió.' });
+  const old = (data.resources || []).map((item) => item.public_id).filter((id) => id !== keep && id.startsWith(prefix));
+  if (!old.length) return reply(200, { deleted: 0 });
+  const query = old.map((id) => `public_ids[]=${encodeURIComponent(id)}`).join('&');
+  const response = await fetch(`${CLOUDINARY_API}/resources/image/upload?${query}&invalidate=true`, { method: 'DELETE', headers: { Authorization: auth } });
+  return response.ok ? reply(200, { deleted: old.length }) : reply(502, { error: 'Cloudinary no pudo borrar las fotos anteriores.' });
+}
+
 async function deleteTripFolder(tripId, token, keys) {
   if (await hasTripRole('is_owner', tripId, token) !== true) {
     return reply(403, { error: 'Solo quien organiza el viaje puede borrar sus fotos.' });
@@ -99,9 +123,10 @@ export default async (request) => {
   if (!keys.apiKey || !keys.apiSecret) return reply(501, { error: 'Falta configurar Cloudinary en Netlify.' });
 
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  const { photoId, tripId } = await request.json().catch(() => ({}));
+  const { photoId, tripId, avatars, keep } = await request.json().catch(() => ({}));
   if (token && UUID.test(photoId || '')) return deletePhoto(photoId, token, keys);
   if (token && UUID.test(tripId || '')) return deleteTripFolder(tripId, token, keys);
+  if (token && avatars === true && typeof (keep ?? '') === 'string') return deleteOldAvatars(keep || '', token, keys);
   return reply(400, { error: 'Petición incompleta.' });
 };
 

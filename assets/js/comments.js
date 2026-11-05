@@ -6,7 +6,7 @@ function listHtml(comments, user) {
   if (!comments.length) return '<p class="comments__empty">Aún no hay comentarios. ¡Escribe el primero!</p>';
   return `<ul class="comments__list">${comments.map((comment) => `
     <li class="comments__item">
-      ${avatarHtml(comment.author_name)}
+      ${avatarHtml(comment.author_name, '', comment.author_id)}
       <div class="comments__bubble">
         <p class="comments__head">
           <span class="comments__author">${esc(comment.author_name)}</span>

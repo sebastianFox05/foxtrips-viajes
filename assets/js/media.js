@@ -10,6 +10,7 @@ const FULL_SIDE = 2048;
 const THUMB_SIDE = 640;
 const QUALITY = 0.82;
 const DELETE_ENDPOINT = '/api/borrar-foto';
+const AVATAR_SIDE = 400;
 const hasCloudinary = Boolean(config.cloudinaryCloudName && config.cloudinaryUploadPreset);
 
 export const photoProvider = hasCloudinary ? 'cloudinary' : store.mode === 'cloud' ? 'supabase' : 'local';
@@ -61,14 +62,19 @@ function cloudinaryTransform(url, transform) {
   return url.replace('/upload/', `/upload/${transform}/`);
 }
 
-async function uploadToCloudinary(tripId, blob) {
+async function sendToCloudinary(folder, blob) {
   const body = new FormData();
   body.append('file', blob);
   body.append('upload_preset', config.cloudinaryUploadPreset);
-  body.append('folder', `foxtrips/${tripId}`);
+  body.append('folder', folder);
   const response = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudinaryCloudName}/image/upload`, { method: 'POST', body });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error?.message || 'No se pudo subir la foto a Cloudinary.');
+  return data;
+}
+
+async function uploadToCloudinary(tripId, blob) {
+  const data = await sendToCloudinary(`foxtrips/${tripId}`, blob);
   return {
     url: cloudinaryTransform(data.secure_url, 'q_auto,f_auto,w_2048,c_limit'),
     thumb_url: cloudinaryTransform(data.secure_url, 'q_auto,f_auto,w_640,h_640,c_fill,g_auto'),
@@ -111,6 +117,49 @@ function deleteCloudinaryFile(photo) {
 /* Al eliminar un viaje: borra su carpeta foxtrips/<viaje>/ en Cloudinary (solo la persona organizadora) */
 export async function deleteTripFiles(tripId) {
   if (hasCloudinary) await callDeleteEndpoint({ tripId });
+}
+
+/* ---- Foto de perfil ---- */
+
+/* Recorte cuadrado centrado */
+async function squareImage(file, side) {
+  if (!file.type.startsWith('image/')) throw new Error('El archivo no es una imagen.');
+  const bitmap = await loadBitmap(file);
+  const crop = Math.min(bitmap.width, bitmap.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.min(side, crop);
+  canvas.height = canvas.width;
+  canvas.getContext('2d').drawImage(bitmap, (bitmap.width - crop) / 2, (bitmap.height - crop) / 2, crop, crop, 0, 0, canvas.width, canvas.height);
+  const webp = await canvasBlob(canvas, 'image/webp');
+  return webp?.type === 'image/webp' ? webp : canvasBlob(canvas, 'image/jpeg');
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(reader.result));
+    reader.addEventListener('error', () => reject(new Error('No se pudo leer la imagen.')));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/*
+ * Sube la foto de perfil (cuadrada, 400 px) y devuelve { url, publicId }.
+ * Nube: Cloudinary, carpeta foxtrips/avatars/<usuario>/. Modo local: imagen en linea de pocos KB.
+ */
+export async function uploadAvatar(userId, file) {
+  const blob = await squareImage(file, AVATAR_SIDE);
+  if (hasCloudinary) {
+    const data = await sendToCloudinary(`foxtrips/avatars/${userId}`, blob);
+    return { url: cloudinaryTransform(data.secure_url, 'q_auto,f_auto,w_256,h_256,c_fill'), publicId: data.public_id };
+  }
+  if (store.mode === 'local') return { url: await blobToDataUrl(blob), publicId: null };
+  throw new Error('Para subir una foto de perfil hace falta configurar Cloudinary.');
+}
+
+/* Borra de Cloudinary tus fotos de perfil anteriores: todas menos keepPublicId (sin el, todas) */
+export async function cleanupAvatars(keepPublicId = '') {
+  if (hasCloudinary) await callDeleteEndpoint({ avatars: true, keep: keepPublicId || '' });
 }
 
 export async function deletePhotoFile(photo) {
