@@ -8,11 +8,34 @@
 ## 1. Qué es el proyecto
 
 **FoxTrips** es una app web responsive para planear viajes en grupo. Se llamó "Rumbo" hasta que el usuario pidió renombrarla.
-Está hecha con **HTML + CSS + JavaScript vanilla** (módulos ES, sin compilación), con datos en la nube.
+Desde el 5 de noviembre de 2026 está hecha con **React 18 + Vite** (JavaScript, sin TypeScript), con datos en la nube.
+La versión 1 (HTML + CSS + JS vanilla) queda en el historial de git, hasta el commit `8959a5c`.
 
 - **App publicada:** https://foxtrips-viajes.netlify.app (el nombre `foxtrips` estaba ocupado en Netlify).
 - **Carpeta:** `C:\Users\Sebas\Documents\Proyectos Claude\viajes\`
-- **Uso en local:** configuración `viajes` de `.claude/launch.json` (equivale a `npx -y serve viajes -l 5173`), en http://localhost:5173.
+- **Uso en local:** `npm install` y luego `npm run dev`, o la configuración `viajes-react` de `.claude/launch.json`, en http://localhost:5173.
+  La versión compilada, con la misma política de seguridad que Netlify, se arranca con `npm run build` y luego `npm run preview` (configuración `viajes-react-preview`).
+
+### Migración a React (5 de noviembre)
+- **Objetivo:** que se viera y funcionara **exactamente igual**. Se reutilizan el mismo CSS (BEM), los mismos textos, las mismas URLs por hash y el mismo almacén de datos (`src/lib`). Solo se reescribió la capa de pantalla, en `src/views` y `src/components`.
+- **Equivalencias:**
+  - `app.js` → `App.jsx` + `TripContext` (refresco por `refreshKey`, aplazado mientras se escribe o se suben fotos).
+  - `ui.js` → `UiContext`: modal, `confirm` y avisos.
+  - `lightbox.js` → `LightboxContext`.
+  - `autocomplete.js` → `<SuggestInput>`.
+  - `scroller.js` → `<Scroller>`.
+  - `sw.js` → `vite-plugin-pwa`. La página se pide primero a la red para que siempre llegue la CSP nueva.
+- **Seguridad añadida:**
+  - CSP y cabeceras (HSTS, `frame-ancestors 'none'`, COOP) en `netlify.toml`.
+  - Dependencias con npm y versión exacta, con 0 vulnerabilidades en producción.
+  - La función de Netlify solo acepta JSON pequeño y responde con `no-store`.
+  - Base de datos endurecida (migración `harden_security_and_performance`): `anon` solo puede llamar a `get_public_trip`; además, `search_path`, límites de texto, índices y políticas RLS optimizadas.
+- **Fallos encontrados al probar con datos reales, y corregidos:**
+  - La CSP bloqueaba las fotos de `thumb.wikimedia.org`; ahora se permite `*.wikimedia.org`.
+  - El service worker guardaba la página con la CSP antigua.
+- **Pendiente opcional:**
+  - En Supabase Auth, activar *Leaked password protection* (puede requerir el plan Pro).
+  - El botón ✕ del buscador convive con el ✕ nativo de los campos `type="search"`. Ya pasaba en la versión 1.
 - **Usuario:** sebasfox0510@gmail.com. Nombre visible en la app: "sebastian fox".
 
 ---
@@ -194,7 +217,7 @@ Fuera de `viajes/`:
 
 ## 8. Cómo publicar cambios en Netlify
 
-1. Subir la versión de caché en `sw.js` (`const CACHE = 'foxtrips-vN'`) para que los móviles descarguen lo nuevo.
+1. Comprobar en local que `npm run build` funciona. El service worker lo genera Vite y no hace falta subir ninguna versión a mano. Netlify ejecuta `npm ci && npm run build`.
 2. Usar el conector Netlify (MCP), operación `deploy-site` con `siteId` `58664967-0ab6-48ae-bcfd-26a93d622b09`.
 3. Ejecutar desde `viajes/` el comando `npx -y @netlify/mcp@latest --site-id … --proxy-path "…"` que devuelve la herramienta. El enlace caduca: si da error 400, pedir uno nuevo.
 4. Comprobar con `curl` que el archivo cambiado está en línea y que `PLAN.md` sigue dando 404.
@@ -236,7 +259,10 @@ Si el conector rechaza las credenciales, el usuario debe reconectar Netlify en *
 ## 10. Estado actual
 
 - **En producción** en https://foxtrips-viajes.netlify.app, conectada a Supabase y a Cloudinary.
-- Última publicación: clima por días, sugerencias en todos los buscadores, intercambio de monedas y arreglo del ancho en iPhone. Service worker en `foxtrips-v9`.
+- **Última publicación (5 de noviembre):** la versión en **React**. Se probó con la cuenta real del usuario y su viaje oficial:
+  - las 13 pestañas, Historia, comentarios, el visor, el mapa (81 lugares), editar un plan y el autocompletado;
+  - sin errores ni violaciones de la CSP.
+- En internet se comprobó que el código fuente y los documentos dan 404 y que las cabeceras de seguridad están activas.
 - Probado de principio a fin con la cuenta real del usuario:
   - crear viaje, fotos (Cloudinary), documentos privados;
   - votos, comentarios, equipaje, diario;
