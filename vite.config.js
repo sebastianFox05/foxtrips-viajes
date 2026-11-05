@@ -2,11 +2,18 @@
  * Vite: compila la app React a dist/ y genera el service worker (PWA) con las mismas
  * estrategias que el sw.js de la version anterior: la app desde cache y red, fotos y fuentes externas con cache.
  */
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const MONTH = 30 * 24 * 60 * 60;
+
+/* "vite preview" usa la misma Content-Security-Policy que Netlify (netlify.toml), para probarla en local */
+function netlifyCsp() {
+  const match = readFileSync(new URL('./netlify.toml', import.meta.url), 'utf8').match(/Content-Security-Policy = "([^"]+)"/);
+  return match ? match[1].replace('; upgrade-insecure-requests', '') : '';
+}
 
 export default defineConfig({
   plugins: [
@@ -39,5 +46,6 @@ export default defineConfig({
     })
   ],
   server: { port: 5173 },
-  build: { outDir: 'dist', sourcemap: false }
+  preview: { headers: { 'Content-Security-Policy': netlifyCsp() } },
+  build: { outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 800 }
 });

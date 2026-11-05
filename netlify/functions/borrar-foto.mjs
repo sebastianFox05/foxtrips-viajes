@@ -24,8 +24,23 @@ const CLOUDINARY_API = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}`;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ROUNDS = 20;
 
+const MAX_BODY_BYTES = 2048;
+
 function reply(status, body) {
-  return Response.json(body, { status });
+  return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+}
+
+/* Solo JSON pequeño: la peticion legitima son unas decenas de bytes */
+async function readJson(request) {
+  if (!(request.headers.get('content-type') || '').toLowerCase().startsWith('application/json')) return null;
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return null;
+  try {
+    const data = JSON.parse(text);
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 /* Consulta a Supabase con la sesion de la persona: RLS decide que puede ver */
@@ -123,7 +138,9 @@ export default async (request) => {
   if (!keys.apiKey || !keys.apiSecret) return reply(501, { error: 'Falta configurar Cloudinary en Netlify.' });
 
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  const { photoId, tripId, avatars, keep } = await request.json().catch(() => ({}));
+  const body = await readJson(request);
+  if (!body) return reply(400, { error: 'Petición incompleta.' });
+  const { photoId, tripId, avatars, keep } = body;
   if (token && UUID.test(photoId || '')) return deletePhoto(photoId, token, keys);
   if (token && UUID.test(tripId || '')) return deleteTripFolder(tripId, token, keys);
   if (token && avatars === true && typeof (keep ?? '') === 'string') return deleteOldAvatars(keep || '', token, keys);

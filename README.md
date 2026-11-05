@@ -16,13 +16,16 @@ libres de Wikimedia Commons (cada foto muestra su autor y licencia).
 
 ## 1. Probarla ya (modo local)
 
-Necesita un servidor local porque usa módulos ES y un service worker:
+Está hecha con **React + Vite**. Necesitas Node.js 20 o más nuevo:
 
 ```bash
-npx serve viajes -l 5173
+npm install
+npm run dev
 ```
 
-Abre http://localhost:5173. Sin claves en `assets/js/config.js`, todo se guarda **solo en ese navegador**.
+Abre http://localhost:5173. Para probar la versión compilada (con la misma política de seguridad que Netlify):
+`npm run build` y luego `npm run preview`.
+Sin claves en `src/lib/config.js`, todo se guarda **solo en ese navegador**.
 Para simular a otra persona, cierra sesión en Perfil y entra con otro nombre.
 
 ## 2. Modo nube: varias personas y varios dispositivos
@@ -30,7 +33,7 @@ Para simular a otra persona, cierra sesión en Perfil y entra con otro nombre.
 ### Supabase (datos, cuentas, tiempo real y documentos), gratis sin tarjeta
 1. Crea un proyecto en https://supabase.com.
 2. Ve a **SQL Editor → New query**, pega `supabase/schema.sql` entero y pulsa **Run**.
-3. Ve a **Project Settings → API** y copia la *Project URL* y la clave *anon public* en `assets/js/config.js`.
+3. Ve a **Project Settings → API** y copia la *Project URL* y la clave *publishable* en `src/lib/config.js`.
 4. En **Authentication → URL Configuration** pon tu dirección (por ejemplo `http://localhost:5173` o la de Netlify) como *Site URL*.
 5. Opcional: en **Authentication → Providers → Email** desactiva *Confirm email* para que las cuentas funcionen al momento.
 6. Opcional, para el botón **Continuar con Google**: en **Authentication → Providers → Google** actívalo y pega el *Client ID* y *Client secret* de Google Cloud (OAuth). Sin esto, el botón mostrará un error.
@@ -39,7 +42,7 @@ Para simular a otra persona, cierra sesión en Perfil y entra con otro nombre.
 1. Crea una cuenta en https://cloudinary.com.
 2. Copia el **Cloud name** del Dashboard.
 3. Ve a **Settings → Upload → Upload presets → Add upload preset**, elige *Signing mode: Unsigned* y guarda.
-4. Pon el *cloud name* y el nombre del preset en `assets/js/config.js`.
+4. Pon el *cloud name* y el nombre del preset en `src/lib/config.js`.
 
 Si no configuras Cloudinary, las fotos se guardan en Supabase Storage (1 GB en el plan gratis).
 Las fotos se comprimen en el navegador (máximo 2048 px, WebP) antes de subirse, unos 300–500 KB por foto.
@@ -53,7 +56,7 @@ Las fotos se comprimen en el navegador (máximo 2048 px, WebP) antes de subirse,
 ## 3. Publicada en Netlify
 
 La app está en **https://foxtrips-viajes.netlify.app** (proyecto `foxtrips-viajes` en Netlify).
-`netlify.toml` publica solo la app (`index.html`, `sw.js`, `manifest.webmanifest` y `assets/`): los documentos internos y el SQL no se suben.
+`netlify.toml` instala las dependencias (`npm ci`), compila con Vite y publica solo `dist/`: el código fuente, los documentos internos y el SQL no se suben. También define la Content-Security-Policy y las demás cabeceras de seguridad.
 Además despliega la función `POST /api/borrar-foto` (carpeta `netlify/functions/`).
 
 En Supabase → **Authentication → URL Configuration**:
@@ -74,18 +77,22 @@ Para publicar cambios, pídeselo a Claude o usa `netlify deploy --prod` desde es
 
 ```
 viajes/
-├── index.html            Estructura semántica y contenedores
-├── sw.js                 Service worker (PWA / sin conexión)
-├── manifest.webmanifest
-├── assets/css/styles.css Estilos BEM comentados por bloques
-├── assets/img/           Iconos
-├── assets/js/
-│   ├── app.js            Enrutador y delegación de eventos
-│   ├── config.js         Claves de Supabase y Cloudinary
-│   ├── store/            Almacén local y almacén Supabase (misma API)
-│   ├── views/            Una vista por sección
-│   └── ...               media, lightbox, comentarios, servicios, ui, utils
-└── supabase/schema.sql   Tablas, RLS, funciones, tiempo real y buckets
+├── index.html              Punto de entrada (solo <div id="root">)
+├── vite.config.js          Vite + React + PWA (el service worker se genera al compilar)
+├── package.json            Dependencias con versión exacta
+├── netlify.toml            Compilación, función y cabeceras de seguridad (CSP)
+├── public/                 manifest.webmanifest e iconos (assets/img)
+├── src/
+│   ├── main.jsx            Arranque: rutas por hash, sesión, modal, visor
+│   ├── App.jsx             Cabecera, rutas, barra inferior y pie
+│   ├── styles/styles.css   Estilos BEM comentados por bloques
+│   ├── lib/                Almacén (local / Supabase), servicios, lugares, fotos, datos…
+│   ├── components/         Icon, Picture, Avatar, Scroller, SuggestInput, Comments
+│   ├── ui/                 Modal, avisos y visor de fotos (contextos)
+│   ├── session/            Usuario actual
+│   └── views/              Una vista por pantalla y por pestaña del viaje
+├── netlify/functions/      borrar-foto.mjs (borrado firmado en Cloudinary)
+└── supabase/schema.sql     Tablas, RLS, funciones, tiempo real y buckets
 ```
 
 Servicios externos gratuitos: OpenStreetMap/Leaflet (mapa), Nominatim (ubicaciones), Open-Meteo (clima),

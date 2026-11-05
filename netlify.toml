@@ -1,8 +1,12 @@
-# Configuracion de Netlify para FoxTrips (web estatica)
-# Solo se publica la app: los documentos internos (PLAN.md, README.md, SKILLS.md) y el SQL no salen a internet.
+# Configuracion de Netlify para FoxTrips (React + Vite)
+# Netlify instala las dependencias exactas (package-lock.json), compila con Vite y publica solo dist/:
+# los documentos internos (PLAN.md, README.md, SKILLS.md), el codigo fuente y el SQL no salen a internet.
 [build]
-  command = "rm -rf dist && mkdir dist && cp -r index.html sw.js manifest.webmanifest assets dist/"
+  command = "npm ci && npm run build"
   publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 # Funciones de servidor (borrar fotos de Cloudinary con firma). Las claves van en variables de entorno.
 [functions]
@@ -20,10 +24,24 @@
     Content-Type = "application/manifest+json"
     Cache-Control = "no-cache"
 
-# Cabeceras de seguridad basicas
+# Los archivos compilados llevan su huella en el nombre: se pueden guardar un año
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cabeceras de seguridad
+# - Content-Security-Policy: el codigo solo puede venir de este sitio y solo se conecta a los servicios que usa la app.
+#   (connect-src incluye los origenes de fotos y fuentes porque el service worker las descarga para guardarlas en cache)
+# - frame-ancestors 'none': nadie puede meter la app dentro de un iframe (evita clickjacking).
+# - Strict-Transport-Security: el navegador siempre usa HTTPS.
 [[headers]]
   for = "/*"
   [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://res.cloudinary.com https://upload.wikimedia.org https://*.tile.openstreetmap.org https://mbldzwyzzzizowjgzdso.supabase.co; connect-src 'self' https://mbldzwyzzzizowjgzdso.supabase.co wss://mbldzwyzzzizowjgzdso.supabase.co https://api.cloudinary.com https://res.cloudinary.com https://api.open-meteo.com https://archive-api.open-meteo.com https://geocoding-api.open-meteo.com https://photon.komoot.io https://nominatim.openstreetmap.org https://es.wikipedia.org https://en.wikipedia.org https://query.wikidata.org https://open.er-api.com https://upload.wikimedia.org https://*.tile.openstreetmap.org https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
     X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self), payment=(), usb=()"
+    Cross-Origin-Opener-Policy = "same-origin"
