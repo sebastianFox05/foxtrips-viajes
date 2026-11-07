@@ -23,6 +23,28 @@ do $$ begin
   end if;
 end $$;
 
+-- Correos con dominio completo (nombre@gmail.com). Añadida el 7 nov 2026 (migracion validate_user_email).
+-- Bloquea registros y cambios de correo incompletos, tambien si alguien llama a Supabase sin pasar por la app.
+-- Las cuentas que ya existian no se tocan (solo se comprueba al crear la cuenta o al cambiar el correo).
+create or replace function public.validate_user_email()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.email is not null
+     and (tg_op = 'INSERT' or new.email is distinct from old.email)
+     and new.email !~* '^[^@[:space:]]+@[^@[:space:].]+(\.[^@[:space:].]+)*\.[a-z]{2,}$' then
+    raise exception 'invalid_email_domain: el correo debe tener un dominio completo (por ejemplo nombre@gmail.com)'
+      using errcode = '22023';
+  end if;
+  return new;
+end $$;
+
+revoke execute on function public.validate_user_email() from public, anon, authenticated;
+
+drop trigger if exists validate_email_before_write on auth.users;
+create trigger validate_email_before_write
+  before insert or update of email on auth.users
+  for each row execute function public.validate_user_email();
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin

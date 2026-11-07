@@ -22,6 +22,8 @@ const AUTH_ERRORS = [
   [/email not confirmed/i, 'Confirma tu correo antes de entrar (revisa tu bandeja de entrada).'],
   [/rate limit|too many requests|security purposes/i, 'Demasiados intentos seguidos. Espera un minuto y vuelve a probar.'],
   [/same password|different from the old/i, 'La nueva contraseña debe ser distinta de la anterior.'],
+  // La base de datos rechaza correos sin dominio completo (regla validate_user_email)
+  [/invalid_email_domain|database error saving new user/i, 'Escribe un correo completo, por ejemplo nombre@gmail.com.'],
   [/invalid email|unable to validate email/i, 'Ese correo no es válido.'],
   [/failed to fetch|network/i, 'Sin conexión. Revisa tu internet e inténtalo de nuevo.']
 ];
