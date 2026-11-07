@@ -60,12 +60,24 @@ function AuthError({ message }) {
   return <p className="auth-panel__error" id="authError" role="alert" hidden={!message}>{message}</p>;
 }
 
+/*
+ * Correo completo: usuario, @ y un dominio con punto y terminacion de 2 letras o mas
+ * (gmail.com, empresa.co, uni.edu.co). El navegador por si solo acepta "nombre@gmail".
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[a-z]{2,}$/i;
+const EMAIL_MESSAGE = 'Escribe un correo completo, por ejemplo nombre@gmail.com.';
+
+export function isValidEmail(value) {
+  return EMAIL_PATTERN.test(String(value || '').trim());
+}
+
 /* Primer campo invalido del formulario y su mensaje (la validacion nativa esta desactivada con noValidate) */
 function firstInvalid(form) {
-  const invalid = [...form.elements].find((element) => element.willValidate && !element.checkValidity());
+  const invalid = [...form.elements].find((element) => element.willValidate
+    && (!element.checkValidity() || (element.type === 'email' && !isValidEmail(element.value))));
   if (!invalid) return null;
   let message = 'Completa todos los campos.';
-  if (invalid.type === 'email') message = 'Escribe un correo válido.';
+  if (invalid.type === 'email') message = invalid.value.trim() ? EMAIL_MESSAGE : 'Escribe tu correo electrónico.';
   else if (invalid.name === 'password' || invalid.name === 'confirm') message = 'La contraseña necesita al menos 6 caracteres.';
   return { element: invalid, message };
 }
@@ -97,6 +109,11 @@ export function LoginView() {
     const email = emailInput?.value.trim();
     if (!email) {
       setError('Escribe tu correo y vuelve a pulsar «¿Olvidaste tu contraseña?».');
+      emailInput?.focus();
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError(EMAIL_MESSAGE);
       emailInput?.focus();
       return;
     }
