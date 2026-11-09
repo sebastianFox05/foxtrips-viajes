@@ -1,5 +1,10 @@
 # FoxTrips · App de viajes en grupo
 
+- **App (principal):** https://foxtrips-viajes.netlify.app
+- **Copia en GitHub Pages:** https://sebastianfox05.github.io/foxtrips-viajes/
+  (sin la función de borrado de fotos en Cloudinary ni las cabeceras de Netlify; se publica sola con cada subida a `main`)
+- **Código:** https://github.com/sebastianFox05/foxtrips-viajes
+
 App web responsive (HTML + CSS + JS, sin compilación) para planear viajes en grupo. Cada viaje tiene:
 itinerario (en carrete o en lista), mapa, álbum, votaciones, diario con resumen final, equipaje, documentos,
 grupo con invitaciones, historial, clima, conversor de moneda, exportación a PDF, página pública y
