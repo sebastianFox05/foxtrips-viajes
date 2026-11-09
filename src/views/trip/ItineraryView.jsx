@@ -619,17 +619,13 @@ export default function ItineraryView() {
     const firstSlot = { day: first.day || null, time: first.time || null };
     const secondSlot = { day: second.day || null, time: second.time || null };
     const isSameSlot = firstSlot.day === secondSlot.day && firstSlot.time === secondSlot.time;
-    if (isSameSlot && firstSlot.time) {
-      toast('Los dos planes ya tienen el mismo horario.');
-      return;
-    }
     if (isSameSlot) {
       if (!hasManualOrder) {
-        toast('Ponles hora a los planes para poder intercambiar su orden.');
+        toast(firstSlot.time ? 'Los dos planes ya tienen el mismo horario.' : 'Ponles hora a los planes para poder intercambiar su orden.');
         return;
       }
-      // Orden manual: se numeran los planes sin hora del dia y se cambian de sitio los dos
-      const timeless = activities.filter((activity) => (activity.day || null) === firstSlot.day && !activity.time);
+      // Mismo dia y misma hora (o sin hora): se numeran los planes de ese hueco y se cambian de sitio los dos
+      const timeless = activities.filter((activity) => (activity.day || null) === firstSlot.day && (activity.time || null) === firstSlot.time);
       const orders = new Map(timeless.map((activity, index) => [activity.id, index * 10]));
       const firstOrder = orders.get(first.id);
       orders.set(first.id, orders.get(second.id));
