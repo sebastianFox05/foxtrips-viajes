@@ -117,6 +117,14 @@ create table if not exists public.activities (
   updated_at timestamptz not null default now()
 );
 
+-- Orden manual de los planes dentro de un dia (para los que no tienen hora). Añadida el 9 nov 2026.
+alter table public.activities add column if not exists sort_order integer;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'activities_sort_order_range') then
+    alter table public.activities add constraint activities_sort_order_range check (sort_order is null or sort_order between 0 and 100000);
+  end if;
+end $$;
+
 create table if not exists public.photos (
   id uuid primary key default gen_random_uuid(),
   trip_id uuid not null references public.trips on delete cascade,

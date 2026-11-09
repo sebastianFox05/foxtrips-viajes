@@ -4090,3 +4090,57 @@ body.is-welcome {
     transform: none;
   }
 }
+
+/* Soltar un plan sobre un dia (tarjeta del carrete o seccion de la lista) */
+.day-card--drop {
+  outline: 3px dashed var(--color-accent);
+  outline-offset: 4px;
+  transform: scale(1.03);
+}
+
+.day--drop {
+  border-radius: var(--radius-m);
+  outline: 3px dashed var(--color-accent);
+  outline-offset: 6px;
+}
+
+/* Traslado desde el plan anterior y avisos de choque de horario */
+.activity__planning {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4) 0;
+}
+
+.activity__travel,
+.activity__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.activity__travel {
+  color: var(--color-ink-soft);
+}
+
+.activity__warning {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, #f2c94c 18%, transparent);
+  color: var(--color-ink);
+}
+
+.activity__warning--conflict {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+}
+
+.activity__travel .icon,
+.activity__warning .icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.activity--conflict {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-danger) 55%, transparent);
+}

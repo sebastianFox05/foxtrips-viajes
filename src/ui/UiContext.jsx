@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const TOAST_MS = 3200;
-const TOAST_ACTION_MS = 7000;
+const TOAST_ACTION_MS = 10000;
 const UiContext = createContext(null);
 
 let toastSeq = 0;

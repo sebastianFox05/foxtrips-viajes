@@ -5,7 +5,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors
+  DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, pointerWithin, useDraggable, useDroppable, useSensor, useSensors
 } from '@dnd-kit/core';
 import { store } from '../../lib/store/index.js';
 import { uploadPhoto } from '../../lib/media.js';
@@ -21,6 +21,7 @@ import useLoad from '../../hooks/useLoad.js';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useTrip } from './TripContext.jsx';
 import { PRINT_FLAG } from './TripLayout.jsx';
+import { TRAVEL_LABELS, dayInsights, formatKm, formatMinutes } from './dayPlanning.js';
 
 const LOOSE_KEY = 'sin-dia';
 const VIEW_KEY = 'foxtrips:itinerary-view';
@@ -29,17 +30,42 @@ const VIEW_MODES = [
   { key: 'lista', label: 'Lista', icon: 'calendar' }
 ];
 const CARD_HUES = [24, 200, 330, 150, 265, 45, 185];
+const DAY_DROP_PREFIX = 'dia:';
+
+/*
+ * Destino al soltar: primero la tarjeta de plan bajo el puntero; si no hay, el dia (tarjeta del carrete o seccion
+ * de la lista) bajo el puntero; con teclado, el destino mas cercano.
+ */
+function dropTarget(args) {
+  const hits = pointerWithin(args);
+  const card = hits.find((hit) => !String(hit.id).startsWith(DAY_DROP_PREFIX));
+  if (card) return [card];
+  if (hits.length) return hits;
+  return closestCenter(args);
+}
 
 /* Textos para lectores de pantalla al arrastrar (en español) */
 const DRAG_INSTRUCTIONS = {
-  draggable: 'Para mover un plan pulsa espacio, usa las flechas para llevarlo sobre otro plan y vuelve a pulsar espacio para intercambiar su horario. Escape cancela.'
+  draggable: 'Para mover un plan pulsa espacio, usa las flechas para llevarlo sobre otro plan (intercambia su horario) o sobre un día (lo mueve a ese día) y vuelve a pulsar espacio. Escape cancela.'
 };
 function DRAG_ANNOUNCEMENTS(activities) {
-  const titleOf = (id) => activities.find((activity) => activity.id === id)?.title || 'el plan';
+  const nameOf = (id) => {
+    const text = String(id);
+    if (text.startsWith(DAY_DROP_PREFIX)) {
+      const day = text.slice(DAY_DROP_PREFIX.length);
+      return day === LOOSE_KEY ? 'Ideas sueltas' : `el día ${formatDay(day, { day: 'numeric', month: 'long' })}`;
+    }
+    return `"${activities.find((activity) => activity.id === id)?.title || 'el plan'}"`;
+  };
+  const isDay = (id) => String(id).startsWith(DAY_DROP_PREFIX);
   return {
-    onDragStart: ({ active }) => `Has cogido "${titleOf(active.id)}".`,
-    onDragOver: ({ active, over }) => (over && over.id !== active.id ? `Sobre "${titleOf(over.id)}". Suelta para intercambiar el horario.` : `"${titleOf(active.id)}" sin destino.`),
-    onDragEnd: ({ active, over }) => (over && over.id !== active.id ? `Intercambiado el horario de "${titleOf(active.id)}" y "${titleOf(over.id)}".` : 'No se cambió nada.'),
+    onDragStart: ({ active }) => `Has cogido ${nameOf(active.id)}.`,
+    onDragOver: ({ active, over }) => (over && over.id !== active.id
+      ? `Sobre ${nameOf(over.id)}. Suelta para ${isDay(over.id) ? 'moverlo a ese día' : 'intercambiar el horario'}.`
+      : `${nameOf(active.id)} sin destino.`),
+    onDragEnd: ({ active, over }) => (over && over.id !== active.id
+      ? `${isDay(over.id) ? 'Movido' : 'Intercambiado con'} ${nameOf(over.id)}.`
+      : 'No se cambió nada.'),
     onDragCancel: () => 'Movimiento cancelado. No se cambió nada.'
   };
 }
@@ -261,14 +287,37 @@ function DraggableActivity(props) {
   );
 }
 
-function Activity({ activity, comments, isPrint = false, handlers, cardRef, cardProps, dragClass = '', handleProps }) {
+/* Traslado desde el plan anterior y aviso si chocan los horarios */
+function ActivityPlanning({ insight }) {
+  if (!insight) return null;
+  const { travel, from, warning, isConflict } = insight;
+  return (
+    <div className="activity__planning">
+      {travel ? (
+        <p className="activity__travel">
+          <Icon name={{ walk: 'walk', city: 'train', road: 'map' }[travel.mode]} size={14} />
+          {travel.minutes === 0
+            ? <> En el mismo sitio que «{from}»</>
+            : <> ~{formatMinutes(travel.minutes)} {TRAVEL_LABELS[travel.mode]} desde «{from}» · {formatKm(travel.km)}</>}
+        </p>
+      ) : null}
+      {warning ? (
+        <p className={`activity__warning${isConflict ? ' activity__warning--conflict' : ''}`} role="note">
+          <Icon name="alert" size={14} /> {warning}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Activity({ activity, comments, isPrint = false, handlers, insight, cardRef, cardProps, dragClass = '', handleProps }) {
   const { trip, canEdit } = useTrip();
   const commentCount = countFor(comments, 'activity', activity.id);
   const place = activity.place ? <p className="activity__place"><Icon name="pin" size={14} /> {activity.place}</p> : null;
   const hasMedia = Boolean(activity.image_url) && !isPrint;
   return (
     <li>
-      <article className={`activity ${dragClass}`.trim()} ref={cardRef} {...cardProps}>
+      <article className={`activity ${insight?.isConflict ? 'activity--conflict ' : ''}${dragClass}`.trim()} ref={cardRef} {...cardProps}>
         {hasMedia ? (
           <figure className="activity__media">
             <Picture url={activity.image_url} alt={`Foto de ${activity.title}`} width={800} height={500} />
@@ -279,6 +328,7 @@ function Activity({ activity, comments, isPrint = false, handlers, cardRef, card
             {activity.image_credit ? <small className="activity__credit">Foto: {activity.image_credit}</small> : null}
           </figure>
         ) : null}
+        {isPrint ? null : <ActivityPlanning insight={insight} />}
         <div className="activity__body">
           <span className="activity__time">{activity.time || '—'}</span>
           <div className="activity__info">
@@ -312,16 +362,28 @@ function Activity({ activity, comments, isPrint = false, handlers, cardRef, card
   );
 }
 
+/* Seccion de un dia en la vista Lista: soltar un plan en su zona libre lo mueve a ese dia */
+function DroppableDaySection({ day, children }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `${DAY_DROP_PREFIX}${day}` });
+  return (
+    <section className={`day${isOver ? ' day--drop' : ''}`} id={`dia-${day}`} aria-labelledby={`title-${day}`} ref={setNodeRef}>
+      {children}
+    </section>
+  );
+}
+
+/* Tarjeta de dia del carrete: tambien es destino al arrastrar un plan (lo mueve a ese dia, con su misma hora) */
 function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `${DAY_DROP_PREFIX}${day}` });
   const withImage = list.find((activity) => activity.image_url);
   const image = withImage?.image_url || coverUrl;
   const isLoose = day === LOOSE_KEY;
   const label = isLoose ? 'Ideas' : `Día ${index + 1}`;
   const title = isLoose ? 'Ideas sueltas' : list[0]?.title || 'Día libre';
   return (
-    <li className="day-reel__item">
+    <li className="day-reel__item" ref={setNodeRef}>
       <button
-        className={`day-card ${isActive ? 'day-card--active' : ''}`}
+        className={`day-card ${isActive ? 'day-card--active' : ''}${isOver ? ' day-card--drop' : ''}`}
         type="button"
         data-day={day}
         style={{ '--card-hue': CARD_HUES[index % CARD_HUES.length] }}
@@ -508,54 +570,136 @@ export default function ItineraryView() {
    * Intercambia el horario (dia y hora) de dos planes. Se ve al momento (cambio provisional) y se guarda en la nube;
    * el aviso trae "Deshacer" para volver a dejarlos como estaban.
    */
-  async function swapSlots(first, second, { isUndo = false } = {}) {
-    const firstSlot = { day: first.day || null, time: first.time || null };
-    const secondSlot = { day: second.day || null, time: second.time || null };
-    if (firstSlot.day === secondSlot.day && firstSlot.time === secondSlot.time) {
-      toast(firstSlot.time ? 'Los dos planes ya tienen el mismo horario.' : 'Ponles hora a los planes para poder intercambiar su orden.');
-      return;
-    }
-    setSlotOverrides((current) => ({ ...current, [first.id]: secondSlot, [second.id]: firstSlot }));
+  // El orden manual (planes sin hora) solo existe si la base de datos ya tiene la columna sort_order
+  const hasManualOrder = (data?.[0] || []).some((activity) => 'sort_order' in activity);
+  const dayLabel = (day) => (day ? formatDay(day, { day: 'numeric', month: 'short' }) : 'Ideas sueltas');
+
+  /* Guarda varios cambios de planes: se ven al momento y se deshacen si falla la nube */
+  async function applyChanges(changes, logText) {
+    setSlotOverrides((current) => ({ ...current, ...Object.fromEntries(changes.map(({ id, patch }) => [id, patch])) }));
     try {
-      await store.update('activities', first.id, secondSlot);
-      await store.update('activities', second.id, firstSlot, {
-        tripId,
-        text: `${isUndo ? 'deshizo el intercambio de' : 'intercambió el horario de'} "${first.title}" y "${second.title}"`
-      });
-      if (!isUndo) {
-        toast(`Intercambiados: "${first.title}" ahora va a las ${secondSlot.time || 'sin hora'}${secondSlot.day !== firstSlot.day ? ` del ${secondSlot.day ? formatDay(secondSlot.day, { day: 'numeric', month: 'short' }) : 'apartado Ideas'}` : ''}.`, {
-          action: { label: 'Deshacer', onClick: () => swapSlots({ ...first, ...secondSlot }, { ...second, ...firstSlot }, { isUndo: true }) }
-        });
+      for (const [index, { id, patch }] of changes.entries()) {
+        const isLast = index === changes.length - 1;
+        await store.update('activities', id, patch, isLast ? { tripId, text: logText } : undefined);
       }
+      return true;
     } catch (error) {
       setSlotOverrides((current) => {
         const next = { ...current };
-        delete next[first.id];
-        delete next[second.id];
+        changes.forEach(({ id }) => delete next[id]);
         return next;
       });
       toastError(error);
+      return false;
+    } finally {
+      refresh();
     }
-    refresh();
+  }
+
+  /* Deja como estaban los planes (dia, hora y orden) */
+  function undoChanges(previous, title) {
+    applyChanges(previous, `deshizo el cambio de horario de "${title}"`);
+  }
+
+  function snapshot(list) {
+    return list.map((activity) => ({ id: activity.id, patch: { day: activity.day || null, time: activity.time || null, ...(hasManualOrder ? { sort_order: activity.sort_order ?? null } : {}) } }));
+  }
+
+  /* Choque con otro plan del dia de destino a la misma hora */
+  function clashIn(day, time, excludeIds) {
+    if (!time) return null;
+    return activities.find((activity) => (activity.day || null) === day && activity.time === time && !excludeIds.includes(activity.id)) || null;
+  }
+
+  /*
+   * Intercambia el horario (dia y hora) de dos planes. Si los dos son del mismo dia y no tienen hora,
+   * intercambia su orden manual. El aviso trae "Deshacer".
+   */
+  async function swapSlots(first, second) {
+    const firstSlot = { day: first.day || null, time: first.time || null };
+    const secondSlot = { day: second.day || null, time: second.time || null };
+    const isSameSlot = firstSlot.day === secondSlot.day && firstSlot.time === secondSlot.time;
+    if (isSameSlot && firstSlot.time) {
+      toast('Los dos planes ya tienen el mismo horario.');
+      return;
+    }
+    if (isSameSlot) {
+      if (!hasManualOrder) {
+        toast('Ponles hora a los planes para poder intercambiar su orden.');
+        return;
+      }
+      // Orden manual: se numeran los planes sin hora del dia y se cambian de sitio los dos
+      const timeless = activities.filter((activity) => (activity.day || null) === firstSlot.day && !activity.time);
+      const orders = new Map(timeless.map((activity, index) => [activity.id, index * 10]));
+      const firstOrder = orders.get(first.id);
+      orders.set(first.id, orders.get(second.id));
+      orders.set(second.id, firstOrder);
+      const changes = timeless
+        .filter((activity) => activity.sort_order !== orders.get(activity.id))
+        .map((activity) => ({ id: activity.id, patch: { sort_order: orders.get(activity.id) } }));
+      const previous = snapshot(timeless);
+      if (await applyChanges(changes, `cambió el orden de "${first.title}" y "${second.title}"`)) {
+        toast(`"${first.title}" y "${second.title}" cambiaron de orden.`, { action: { label: 'Deshacer', onClick: () => undoChanges(previous, first.title) } });
+      }
+      return;
+    }
+    const previous = snapshot([first, second]);
+    const changes = [
+      { id: first.id, patch: secondSlot },
+      { id: second.id, patch: firstSlot }
+    ];
+    if (await applyChanges(changes, `intercambió el horario de "${first.title}" y "${second.title}"`)) {
+      const where = secondSlot.day !== firstSlot.day ? ` del ${dayLabel(secondSlot.day)}` : '';
+      toast(`Intercambiados: "${first.title}" ahora va a las ${secondSlot.time || 'sin hora'}${where}.`, {
+        action: { label: 'Deshacer', onClick: () => undoChanges(previous, first.title) }
+      });
+    }
+  }
+
+  /* Mueve un plan a otro dia conservando su hora (avisa si choca con otro plan de ese dia) */
+  async function moveToDay(activity, dayKey) {
+    const day = dayKey === LOOSE_KEY ? null : dayKey;
+    if ((activity.day || null) === day) return;
+    const clash = clashIn(day, activity.time, [activity.id]);
+    const previous = snapshot([activity]);
+    const patch = { day, ...(hasManualOrder ? { sort_order: null } : {}) };
+    if (await applyChanges([{ id: activity.id, patch }], `movió "${activity.title}" al ${dayLabel(day)}`)) {
+      const clashText = clash ? ` Ojo: coincide con «${clash.title}» a las ${activity.time}.` : '';
+      toast(`"${activity.title}" pasó al ${dayLabel(day)}${activity.time ? ` a las ${activity.time}` : ''}.${clashText}`, {
+        isError: Boolean(clash),
+        action: { label: 'Deshacer', onClick: () => undoChanges(previous, activity.title) }
+      });
+    }
   }
 
   function dragEndHandler({ active, over }) {
     setDraggingId(null);
     if (!over || active.id === over.id) return;
     const first = activities.find((activity) => activity.id === active.id);
+    if (!first) return;
+    const overId = String(over.id);
+    if (overId.startsWith(DAY_DROP_PREFIX)) {
+      moveToDay(first, overId.slice(DAY_DROP_PREFIX.length));
+      return;
+    }
     const second = activities.find((activity) => activity.id === over.id);
-    if (first && second) swapSlots(first, second);
+    if (second) swapSlots(first, second);
   }
 
   const draggingActivity = draggingId ? activities.find((activity) => activity.id === draggingId) : null;
   const ActivityItem = canEdit ? DraggableActivity : Activity;
-  const activityList = (list, isPrint = false) => (
-    <ul className="day__list">
-      {list.map((activity) => (isPrint
-        ? <Activity key={activity.id} activity={activity} comments={comments} isPrint handlers={handlers} />
-        : <ActivityItem key={activity.id} activity={activity} comments={comments} handlers={handlers} />))}
-    </ul>
-  );
+  const activityList = (list, isPrint = false) => {
+    // Traslados y choques solo dentro de un mismo dia (las ideas sueltas no tienen horario comun)
+    const isOneDay = list.length > 1 && list.every((activity) => activity.day && activity.day === list[0].day && reelDays.includes(activity.day));
+    const insights = !isPrint && isOneDay ? dayInsights(list) : new Map();
+    return (
+      <ul className="day__list">
+        {list.map((activity) => (isPrint
+          ? <Activity key={activity.id} activity={activity} comments={comments} isPrint handlers={handlers} />
+          : <ActivityItem key={activity.id} activity={activity} comments={comments} handlers={handlers} insight={insights.get(activity.id)} />))}
+      </ul>
+    );
+  };
 
   function detailView() {
     const list = activitiesOf(currentDay);
@@ -611,7 +755,7 @@ export default function ItineraryView() {
           const list = activitiesOf(day);
           const isLoose = day === LOOSE_KEY;
           return (
-            <section className="day" id={`dia-${day}`} aria-labelledby={`title-${day}`} key={day}>
+            <DroppableDaySection day={day} key={day}>
               <header className="day__header">
                 <div>
                   <span className="day__label">{isLoose ? 'Sin día asignado' : `Día ${index + 1}`}</span>
@@ -620,7 +764,7 @@ export default function ItineraryView() {
                 {canEdit ? <button className="btn btn--small" type="button" onClick={() => newActivityHandler(day)}><Icon name="plus" size={16} /> Añadir</button> : null}
               </header>
               {list.length ? activityList(list) : <p className="day__empty">Nada planeado todavía para este día.</p>}
-            </section>
+            </DroppableDaySection>
           );
         })}
       </>
@@ -646,7 +790,7 @@ export default function ItineraryView() {
       </div>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={dropTarget}
         accessibility={{ announcements: DRAG_ANNOUNCEMENTS(activities), screenReaderInstructions: DRAG_INSTRUCTIONS }}
         onDragStart={({ active }) => setDraggingId(active.id)}
         onDragCancel={() => setDraggingId(null)}

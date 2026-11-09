@@ -200,10 +200,12 @@ export function formToObject(form) {
   return data;
 }
 
+/* Orden de los planes: dia, hora, orden manual (planes sin hora) y fecha de creacion */
 export function sortActivities(list) {
   return [...list].sort((first, second) =>
     (first.day || '').localeCompare(second.day || '') ||
     (first.time || '99:99').localeCompare(second.time || '99:99') ||
+    (first.sort_order ?? Number.MAX_SAFE_INTEGER) - (second.sort_order ?? Number.MAX_SAFE_INTEGER) ||
     (first.created_at || '').localeCompare(second.created_at || ''));
 }
 

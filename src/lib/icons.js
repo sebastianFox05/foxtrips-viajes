@@ -52,6 +52,7 @@ const PATHS = {
   bed: '<path d="M3 19V6M3 15h18v4M21 15v-3a3 3 0 0 0-3-3h-7v6"/><circle cx="7" cy="11" r="2"/>',
   plane: '<path d="M10.5 13.5 3 11l1.5-1.5 8 .5 4.5-5a2 2 0 0 1 3 3l-5 4.5.5 8L14 22l-2.5-7.5-3.5 3V20l-1.5 1.5-1-3.5-3.5-1L3.5 15H6l3-3"/>',
   alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.2v.3"/>',
+  walk: '<circle cx="13" cy="4.5" r="1.8"/><path d="m9 21 2.5-6.5L14 17v4M11.5 14.5 12.5 9l3 3h3M12.5 9l-3 2-1.5 3"/>',
   grip: '<circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
   heartFill: '<path d="M12 20s-8-4.7-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15.3 12 20 12 20z" fill="currentColor"/>'
 };
