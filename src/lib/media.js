@@ -10,6 +10,7 @@ const FULL_SIDE = 2048;
 const THUMB_SIDE = 640;
 const QUALITY = 0.82;
 const DELETE_ENDPOINT = '/api/borrar-foto';
+const HAS_SERVER_FUNCTIONS = import.meta.env.VITE_SERVER_FUNCTIONS !== 'off';
 const AVATAR_SIDE = 400;
 const hasCloudinary = Boolean(config.cloudinaryCloudName && config.cloudinaryUploadPreset);
 
@@ -101,6 +102,8 @@ export async function uploadPhoto(tripId, file) {
  * Si la funcion no esta disponible (en local, o sin claves en Netlify), la foto solo se quita del album.
  */
 async function callDeleteEndpoint(payload) {
+  // En GitHub Pages no hay funciones de servidor: la foto solo se quita del album (los archivos siguen en Cloudinary)
+  if (!HAS_SERVER_FUNCTIONS) return;
   const token = await store.accessToken?.();
   if (!token) return;
   await fetch(DELETE_ENDPOINT, {

@@ -40,7 +40,7 @@ export default function AuthVisual() {
         })}
         <figcaption className="auth-visual__brand">
           <span className="auth-visual__logo">
-            <img src="/assets/img/logo.png" alt="" width="30" height="30" />
+            <img src={`${import.meta.env.BASE_URL}assets/img/logo.png`} alt="" width="30" height="30" />
             FoxTrips <span className="auth-visual__badge">Viajes</span>
           </span>
           <span className="auth-visual__tagline">Planead, votad y guardad cada recuerdo con tu gente.</span>

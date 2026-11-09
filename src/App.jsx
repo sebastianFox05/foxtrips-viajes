@@ -69,7 +69,7 @@ function Header({ user, routeName }) {
     <header className="site-header">
       <div className="site-header__inner">
         <a className="site-header__brand" href="#/" aria-label="FoxTrips, ir a mis viajes">
-          <img className="site-header__logo" src="/assets/img/logo.png" alt="" width="32" height="32" />
+          <img className="site-header__logo" src={`${import.meta.env.BASE_URL}assets/img/logo.png`} alt="" width="32" height="32" />
           <span className="site-header__brand-text">FoxTrips</span>
         </a>
         <nav className="site-header__nav" id="siteNav" aria-label="Principal" hidden={!user}>

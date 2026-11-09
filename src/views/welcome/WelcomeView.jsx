@@ -118,7 +118,7 @@ export default function WelcomeView() {
         })}
       </div>
       <header className="welcome__brand" aria-hidden="true">
-        <img className="welcome__logo" src="/assets/img/logo.png" alt="" width="34" height="34" />
+        <img className="welcome__logo" src={`${import.meta.env.BASE_URL}assets/img/logo.png`} alt="" width="34" height="34" />
         <span>FoxTrips</span>
       </header>
       <footer className="welcome__controls">

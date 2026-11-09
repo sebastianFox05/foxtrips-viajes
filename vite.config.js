@@ -15,9 +15,29 @@ function netlifyCsp() {
   return match ? match[1].replace('; upgrade-insecure-requests', '') : '';
 }
 
+/*
+ * GitHub Pages (copia de la app): se publica en https://<usuario>.github.io/foxtrips-viajes/ y no admite
+ * cabeceras ni funciones. Por eso la ruta base cambia y la CSP va en una etiqueta <meta> (sin frame-ancestors,
+ * que solo funciona como cabecera). Netlify sigue siendo la direccion principal, con cabeceras completas.
+ */
+const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+
+function pagesCspPlugin() {
+  return {
+    name: 'foxtrips-pages-csp',
+    transformIndexHtml(html) {
+      if (!isGitHubPages) return html;
+      const csp = netlifyCsp().replace(/;\s*frame-ancestors[^;]*/, '');
+      return html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  <meta http-equiv="Content-Security-Policy" content="${csp}">`);
+    }
+  };
+}
+
 export default defineConfig({
+  base: isGitHubPages ? '/foxtrips-viajes/' : '/',
   plugins: [
     react(),
+    pagesCspPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       // El manifiesto ya existe en public/manifest.webmanifest (mismo nombre, iconos y colores)
@@ -31,7 +51,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/api/'),
+            urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.includes('/api/'),
             handler: 'NetworkFirst',
             options: { cacheName: 'foxtrips-paginas', networkTimeoutSeconds: 4, expiration: { maxEntries: 5 } }
           },
