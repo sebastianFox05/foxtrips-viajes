@@ -8,6 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const TOAST_MS = 3200;
+const TOAST_ACTION_MS = 7000;
 const UiContext = createContext(null);
 
 let toastSeq = 0;
@@ -73,10 +74,16 @@ export function UiProvider({ children }) {
   const confirmRef = useRef(null);
   const isOpenRef = useRef(false);
 
-  const toast = useCallback((message, { isError = false } = {}) => {
+  /* action: { label, onClick } añade un boton al aviso (por ejemplo "Deshacer"); entonces dura mas */
+  const toast = useCallback((message, { isError = false, action = null } = {}) => {
     const id = ++toastSeq;
-    setToasts((list) => [...list, { id, message, isError }]);
-    setTimeout(() => setToasts((list) => list.filter((item) => item.id !== id)), TOAST_MS);
+    setToasts((list) => [...list, { id, message, isError, action }]);
+    setTimeout(() => setToasts((list) => list.filter((item) => item.id !== id)), action ? TOAST_ACTION_MS : TOAST_MS);
+  }, []);
+
+  const toastActionHandler = useCallback((item) => {
+    setToasts((list) => list.filter((entry) => entry.id !== item.id));
+    item.action.onClick();
   }, []);
 
   const toastError = useCallback((error) => {
@@ -134,7 +141,10 @@ export function UiProvider({ children }) {
       <Modal modal={modal} onRequestClose={closeModal} onClosed={modalClosedHandler} />
       <div className="toast-region" id="toasts" aria-live="polite" aria-atomic="false">
         {toasts.map((item) => (
-          <p key={item.id} className={`toast${item.isError ? ' toast--error' : ''}`} role={item.isError ? 'alert' : 'status'}>{item.message}</p>
+          <p key={item.id} className={`toast${item.isError ? ' toast--error' : ''}${item.action ? ' toast--action' : ''}`} role={item.isError ? 'alert' : 'status'}>
+            {item.message}
+            {item.action ? <button className="toast__action" type="button" onClick={() => toastActionHandler(item)}>{item.action.label}</button> : null}
+          </p>
         ))}
       </div>
     </UiContext.Provider>

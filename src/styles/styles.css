@@ -4029,3 +4029,64 @@ body.is-welcome {
   outline: 3px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* --------------------------------------------------------------------------
+   39. Intercambiar planes arrastrando (itinerario) y avisos con boton
+   -------------------------------------------------------------------------- */
+/* En movil se coge manteniendo pulsado: sin menu de "guardar imagen" ni arrastre nativo de la foto */
+.activity--draggable img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.activity--dragging {
+  opacity: 0.35;
+}
+
+.activity--drop {
+  outline: 3px dashed var(--color-accent);
+  outline-offset: 3px;
+}
+
+.activity--overlay {
+  max-width: 320px;
+  box-shadow: var(--shadow-float);
+  cursor: grabbing;
+  transform: rotate(-2deg);
+}
+
+.activity__handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.activity__handle:active {
+  cursor: grabbing;
+}
+
+/* El aviso con boton ("Deshacer") recibe clics aunque la zona de avisos no */
+.toast--action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  pointer-events: auto;
+}
+
+.toast__action {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity--overlay {
+    transform: none;
+  }
+}

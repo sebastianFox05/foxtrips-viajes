@@ -4,6 +4,9 @@
  * La imagen del sitio de cada actividad tambien se guarda en el album.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors
+} from '@dnd-kit/core';
 import { store } from '../../lib/store/index.js';
 import { uploadPhoto } from '../../lib/media.js';
 import { geocode } from '../../lib/services.js';
@@ -26,6 +29,20 @@ const VIEW_MODES = [
   { key: 'lista', label: 'Lista', icon: 'calendar' }
 ];
 const CARD_HUES = [24, 200, 330, 150, 265, 45, 185];
+
+/* Textos para lectores de pantalla al arrastrar (en español) */
+const DRAG_INSTRUCTIONS = {
+  draggable: 'Para mover un plan pulsa espacio, usa las flechas para llevarlo sobre otro plan y vuelve a pulsar espacio para intercambiar su horario. Escape cancela.'
+};
+function DRAG_ANNOUNCEMENTS(activities) {
+  const titleOf = (id) => activities.find((activity) => activity.id === id)?.title || 'el plan';
+  return {
+    onDragStart: ({ active }) => `Has cogido "${titleOf(active.id)}".`,
+    onDragOver: ({ active, over }) => (over && over.id !== active.id ? `Sobre "${titleOf(over.id)}". Suelta para intercambiar el horario.` : `"${titleOf(active.id)}" sin destino.`),
+    onDragEnd: ({ active, over }) => (over && over.id !== active.id ? `Intercambiado el horario de "${titleOf(active.id)}" y "${titleOf(over.id)}".` : 'No se cambió nada.'),
+    onDragCancel: () => 'Movimiento cancelado. No se cambió nada.'
+  };
+}
 
 // El dia elegido se recuerda al cambiar de pestaña dentro del mismo viaje
 let rememberedDay = null;
@@ -219,14 +236,39 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
 
 /* ---- Piezas del itinerario ---- */
 
-function Activity({ activity, comments, isPrint = false, handlers }) {
+/*
+ * Tarjeta arrastrable: se coge con el raton, manteniendo pulsado el dedo (movil) o con el boton "Mover"
+ * (teclado: espacio para coger, flechas para moverla, espacio para soltar). Al soltarla sobre otra, se intercambian
+ * el dia y la hora de las dos.
+ */
+function DraggableActivity(props) {
+  const { activity } = props;
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id: activity.id });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: activity.id });
+  const { onKeyDown, ...pointerListeners } = listeners || {};
+  const setRefs = (node) => {
+    setDragRef(node);
+    setDropRef(node);
+  };
+  return (
+    <Activity
+      {...props}
+      cardRef={setRefs}
+      cardProps={pointerListeners}
+      dragClass={`activity--draggable${isDragging ? ' activity--dragging' : ''}${isOver && !isDragging ? ' activity--drop' : ''}`}
+      handleProps={{ ...attributes, onKeyDown }}
+    />
+  );
+}
+
+function Activity({ activity, comments, isPrint = false, handlers, cardRef, cardProps, dragClass = '', handleProps }) {
   const { trip, canEdit } = useTrip();
   const commentCount = countFor(comments, 'activity', activity.id);
   const place = activity.place ? <p className="activity__place"><Icon name="pin" size={14} /> {activity.place}</p> : null;
   const hasMedia = Boolean(activity.image_url) && !isPrint;
   return (
     <li>
-      <article className="activity">
+      <article className={`activity ${dragClass}`.trim()} ref={cardRef} {...cardProps}>
         {hasMedia ? (
           <figure className="activity__media">
             <Picture url={activity.image_url} alt={`Foto de ${activity.title}`} width={800} height={500} />
@@ -248,6 +290,11 @@ function Activity({ activity, comments, isPrint = false, handlers }) {
           <footer className="activity__footer">
             <span>{activity.created_by_name ? `Añadido por ${activity.created_by_name}` : ''}</span>
             <div className="activity__actions">
+              {handleProps ? (
+                <button {...handleProps} className="btn btn--ghost btn--small btn--icon activity__handle" type="button" aria-label={`Mover ${activity.title} para intercambiar su horario con otro plan`} title="Arrastra para intercambiar el horario">
+                  <Icon name="grip" size={16} />
+                </button>
+              ) : null}
               <button className="btn btn--ghost btn--small" type="button" aria-label={`Historia de ${activity.title}`} onClick={() => handlers.history(activity)}><Icon name="book" size={16} /> Historia</button>
               <button className="btn btn--ghost btn--small" type="button" aria-label={`Comentarios de ${activity.title}: ${commentCount}`} onClick={() => handlers.comments(activity)}><Icon name="chat" size={16} /> {commentCount}</button>
               {activity.lat != null ? <a className="btn btn--ghost btn--small btn--icon" href={`#/viaje/${trip.id}/mapa?foco=${activity.id}`} aria-label={`Ver ${activity.title} en el mapa`}><Icon name="map" size={16} /></a> : null}
@@ -304,10 +351,25 @@ export default function ItineraryView() {
   const trackRef = useRef(null);
   const selectedRef = useRef(null);
   const shouldScrollRef = useRef(false);
+  const [slotOverrides, setSlotOverrides] = useState({});
+  const [draggingId, setDraggingId] = useState(null);
   const { data } = useLoad(() => Promise.all([store.list('activities', tripId), store.list('comments', tripId)]), [tripId, refreshKey]);
+  // Raton: arrastrar 6 px. Movil: mantener pulsado 250 ms (asi deslizar la pagina sigue funcionando). Teclado: boton "Mover".
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  // Al llegar los datos nuevos, los cambios provisionales (intercambio recien hecho) ya no hacen falta
+  useEffect(() => {
+    setSlotOverrides({});
+  }, [data]);
 
   const reelDays = useMemo(() => eachDay(trip.start_date, trip.end_date), [trip.start_date, trip.end_date]);
-  const activities = useMemo(() => sortActivities(data?.[0] || []), [data]);
+  const activities = useMemo(() => sortActivities((data?.[0] || []).map((activity) => (
+    slotOverrides[activity.id] ? { ...activity, ...slotOverrides[activity.id] } : activity
+  ))), [data, slotOverrides]);
   const comments = data?.[1] || [];
   const activitiesOf = (day) => (day === LOOSE_KEY
     ? activities.filter((activity) => !activity.day || !reelDays.includes(activity.day))
@@ -442,7 +504,58 @@ export default function ItineraryView() {
     }
   };
 
-  const activityList = (list, isPrint = false) => <ul className="day__list">{list.map((activity) => <Activity key={activity.id} activity={activity} comments={comments} isPrint={isPrint} handlers={handlers} />)}</ul>;
+  /*
+   * Intercambia el horario (dia y hora) de dos planes. Se ve al momento (cambio provisional) y se guarda en la nube;
+   * el aviso trae "Deshacer" para volver a dejarlos como estaban.
+   */
+  async function swapSlots(first, second, { isUndo = false } = {}) {
+    const firstSlot = { day: first.day || null, time: first.time || null };
+    const secondSlot = { day: second.day || null, time: second.time || null };
+    if (firstSlot.day === secondSlot.day && firstSlot.time === secondSlot.time) {
+      toast(firstSlot.time ? 'Los dos planes ya tienen el mismo horario.' : 'Ponles hora a los planes para poder intercambiar su orden.');
+      return;
+    }
+    setSlotOverrides((current) => ({ ...current, [first.id]: secondSlot, [second.id]: firstSlot }));
+    try {
+      await store.update('activities', first.id, secondSlot);
+      await store.update('activities', second.id, firstSlot, {
+        tripId,
+        text: `${isUndo ? 'deshizo el intercambio de' : 'intercambió el horario de'} "${first.title}" y "${second.title}"`
+      });
+      if (!isUndo) {
+        toast(`Intercambiados: "${first.title}" ahora va a las ${secondSlot.time || 'sin hora'}${secondSlot.day !== firstSlot.day ? ` del ${secondSlot.day ? formatDay(secondSlot.day, { day: 'numeric', month: 'short' }) : 'apartado Ideas'}` : ''}.`, {
+          action: { label: 'Deshacer', onClick: () => swapSlots({ ...first, ...secondSlot }, { ...second, ...firstSlot }, { isUndo: true }) }
+        });
+      }
+    } catch (error) {
+      setSlotOverrides((current) => {
+        const next = { ...current };
+        delete next[first.id];
+        delete next[second.id];
+        return next;
+      });
+      toastError(error);
+    }
+    refresh();
+  }
+
+  function dragEndHandler({ active, over }) {
+    setDraggingId(null);
+    if (!over || active.id === over.id) return;
+    const first = activities.find((activity) => activity.id === active.id);
+    const second = activities.find((activity) => activity.id === over.id);
+    if (first && second) swapSlots(first, second);
+  }
+
+  const draggingActivity = draggingId ? activities.find((activity) => activity.id === draggingId) : null;
+  const ActivityItem = canEdit ? DraggableActivity : Activity;
+  const activityList = (list, isPrint = false) => (
+    <ul className="day__list">
+      {list.map((activity) => (isPrint
+        ? <Activity key={activity.id} activity={activity} comments={comments} isPrint handlers={handlers} />
+        : <ActivityItem key={activity.id} activity={activity} comments={comments} handlers={handlers} />))}
+    </ul>
+  );
 
   function detailView() {
     const list = activitiesOf(currentDay);
@@ -531,7 +644,26 @@ export default function ItineraryView() {
           {canEdit ? <button className="btn btn--primary btn--small" type="button" onClick={() => newActivityHandler('')}><Icon name="plus" size={16} /> Actividad</button> : null}
         </div>
       </div>
-      <div className="no-print">{mode === 'carrete' ? reelView() : listView()}</div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        accessibility={{ announcements: DRAG_ANNOUNCEMENTS(activities), screenReaderInstructions: DRAG_INSTRUCTIONS }}
+        onDragStart={({ active }) => setDraggingId(active.id)}
+        onDragCancel={() => setDraggingId(null)}
+        onDragEnd={dragEndHandler}
+      >
+        <div className="no-print">{mode === 'carrete' ? reelView() : listView()}</div>
+        <DragOverlay dropAnimation={null}>
+          {draggingActivity ? (
+            <div className="activity activity--overlay" aria-hidden="true">
+              <div className="activity__body">
+                <span className="activity__time">{draggingActivity.time || '—'}</span>
+                <div className="activity__info"><h4 className="activity__title">{draggingActivity.title}</h4></div>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
       {/* Copia completa para imprimir / exportar a PDF */}
       <div className="print-only">
         {printDays.map((day, index) => {
