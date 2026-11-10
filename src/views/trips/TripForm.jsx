@@ -8,23 +8,103 @@ import { store } from '../../lib/store/index.js';
 import { uploadPhoto, deleteTripFiles } from '../../lib/media.js';
 import { currencyForCountry, currencyOptions, homeCurrency } from '../../lib/currencies.js';
 import { bestCity } from '../../lib/places.js';
-import { formToObject } from '../../lib/utils.js';
+import { formToObject, uid } from '../../lib/utils.js';
+import Icon from '../../components/Icon.jsx';
 import SuggestInput from '../../components/SuggestInput.jsx';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { t } from '../../lib/i18n/index.js';
+
+/*
+ * Paradas despues del destino principal: campos stop_name_<clave> (con sus coordenadas _lat/_lon)
+ * y stop_from_<clave> (dia de llegada), en el orden del formulario.
+ */
+async function readStops(data, previous) {
+  const keys = Object.keys(data).filter((key) => /^stop_name_[0-9a-f]+$/i.test(key)).map((key) => key.slice('stop_name_'.length));
+  const stops = [];
+  for (const key of keys) {
+    const name = data[`stop_name_${key}`];
+    const from = data[`stop_from_${key}`];
+    if (!name) continue;
+    if (!from) throw new Error(t('Pon el día de llegada a {place}.', { place: name }));
+    if (from <= data.start_date || from > data.end_date) throw new Error(t('La llegada a {place} debe ser después de la ida y no más tarde que la vuelta.', { place: name }));
+    const lat = parseFloat(data[`stop_name_${key}_lat`]);
+    const lon = parseFloat(data[`stop_name_${key}_lon`]);
+    let coords = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+    if (!coords) {
+      const known = (previous?.stops || []).find((stop) => stop.name === name && stop.lat != null);
+      coords = known ? { lat: known.lat, lon: known.lon } : await bestCity(name).then((place) => (place ? { lat: place.lat, lon: place.lon } : null));
+    }
+    stops.push({ name, from, lat: coords?.lat ?? null, lon: coords?.lon ?? null });
+  }
+  stops.sort((first, second) => first.from.localeCompare(second.from));
+  if (stops.some((stop, index) => index && stop.from === stops[index - 1].from)) throw new Error(t('Dos paradas no pueden empezar el mismo día.'));
+  return stops;
+}
+
+/* Paradas extra del formulario: filas con clave estable, nombre, coordenadas y llegada */
+function StopsEditor({ trip }) {
+  const [rows, setRows] = useState(() => (trip.stops || []).map((stop) => ({ key: uid().slice(0, 8), ...stop })));
+
+  function addHandler() {
+    setRows((list) => [...list, { key: uid().slice(0, 8), name: '', from: '', lat: null, lon: null }]);
+  }
+
+  function removeHandler(key) {
+    setRows((list) => list.filter((row) => row.key !== key));
+  }
+
+  return (
+    <fieldset className="stops-editor">
+      <legend className="form__label">{t('Más destinos')}</legend>
+      <p className="form__help">{t('¿Vais a varias ciudades? Añade cada una con el día en que llegáis. El destino de arriba es la primera parada.')}</p>
+      {rows.length ? (
+        <ol className="stops-editor__list">
+          {rows.map((row, index) => (
+            <li className="stops-editor__row" key={row.key}>
+              <div className="form__field suggest-host">
+                <label className="form__label" htmlFor={`stopName-${row.key}`}>{t('Parada {n}', { n: index + 2 })}</label>
+                <SuggestInput
+                  id={`stopName-${row.key}`}
+                  name={`stop_name_${row.key}`}
+                  kind="city"
+                  maxLength={120}
+                  defaultValue={row.name}
+                  placeholder={t('Ciudad')}
+                  isOverlay
+                  withCoords
+                  defaultCoords={{ lat: row.lat, lon: row.lon }}
+                />
+              </div>
+              <div className="form__field">
+                <label className="form__label" htmlFor={`stopFrom-${row.key}`}>{t('Llegada')}</label>
+                <input className="form__input" id={`stopFrom-${row.key}`} name={`stop_from_${row.key}`} type="date" defaultValue={row.from || ''} />
+              </div>
+              <button className="btn btn--ghost btn--small btn--icon btn--danger stops-editor__remove" type="button" aria-label={t('Quitar la parada {n}', { n: index + 2 })} onClick={() => removeHandler(row.key)}>
+                <Icon name="trash" size={16} />
+              </button>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      <button className="btn btn--small" type="button" onClick={addHandler}><Icon name="plus" size={16} /> {t('Añadir destino')}</button>
+    </fieldset>
+  );
+}
 
 /* Guarda el viaje desde el formulario; devuelve su id */
 export async function saveTrip(form, previous) {
   const data = formToObject(form);
   const coverFile = form.elements.cover.files[0];
   if (data.end_date < data.start_date) throw new Error(t('La vuelta no puede ser antes de la ida.'));
+  const stops = await readStops(data, previous);
   const patch = {
     name: data.name,
     destination: data.destination,
     start_date: data.start_date,
     end_date: data.end_date,
     currency: data.currency,
-    description: data.description
+    description: data.description,
+    stops
   };
   // Coordenadas: las de la ciudad elegida en el menu; si se escribio sin elegir, la mejor coincidencia
   const pickedLat = parseFloat(data.destination_lat);
@@ -111,6 +191,7 @@ function TripForm({ trip = {}, onSubmit, onCancel, onDelete }) {
           <input className="form__input" id="tripEnd" name="end_date" type="date" required defaultValue={trip.end_date || ''} />
         </div>
       </div>
+      <StopsEditor trip={trip} />
       <div className="form__row">
         <div className="form__field">
           <label className="form__label" htmlFor="tripCurrency">{t('Moneda del destino')}</label>

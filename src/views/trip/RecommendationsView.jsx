@@ -10,6 +10,8 @@ import { currentPosition, reverseGeocode } from '../../lib/services.js';
 import { bestCity, localizedCityName } from '../../lib/places.js';
 import { safeUrl } from '../../lib/utils.js';
 import { formatDistance } from '../../lib/locale.js';
+import { shortStopName } from '../../lib/stops.js';
+import Scroller from '../../components/Scroller.jsx';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import SuggestInput from '../../components/SuggestInput.jsx';
@@ -83,8 +85,11 @@ export default function RecommendationsView({ isStandalone = false }) {
   const [isSearchBusy, runSearch] = useBusy();
   const contextKey = tripId || 'general';
   if (memory.contextKey !== contextKey) {
-    memory = { contextKey, source: trip ? 'viaje' : 'aqui', place: null, results: [], errorMessage: '', loadedKey: '', isShowingAll: false };
+    memory = { contextKey, source: trip ? 'viaje' : 'aqui', place: null, results: [], errorMessage: '', loadedKey: '', isShowingAll: false, stopIndex: tripCtx?.currentStop?.index || 0 };
   }
+  // Viaje con varias paradas: se elige de cual ver el top (al entrar, la de hoy)
+  const tripStopsList = trip ? tripCtx?.stops || [] : [];
+  const [stopIndex, setStopIndex] = useState(memory.stopIndex || 0);
   const [source, setSource] = useState(memory.source);
   const [place, setPlace] = useState(memory.place);
   const [results, setResults] = useState(memory.results);
@@ -94,7 +99,7 @@ export default function RecommendationsView({ isStandalone = false }) {
   const [plannedTitles, setPlannedTitles] = useState(new Set());
   const seqRef = useRef(0);
   const queryRef = useRef(null);
-  Object.assign(memory, { source, place, results, errorMessage, isShowingAll });
+  Object.assign(memory, { source, place, results, errorMessage, isShowingAll, stopIndex });
 
   // Planes ya en el itinerario (para marcar "En tu plan")
   useEffect(() => {
@@ -104,7 +109,7 @@ export default function RecommendationsView({ isStandalone = false }) {
     });
   }, [tripId, tripCtx?.refreshKey]);
 
-  async function load(nextSource, searchedPlace = null) {
+  async function load(nextSource, searchedPlace = null, nextStopIndex = stopIndex) {
     const seq = ++seqRef.current;
     setIsLoading(true);
     setErrorMessage('');
@@ -112,7 +117,10 @@ export default function RecommendationsView({ isStandalone = false }) {
       let resolved = searchedPlace;
       if (nextSource === 'viaje') {
         if (!trip?.destination && trip?.lat == null) throw new Error(t('Añade un destino al viaje para ver sus recomendaciones.'));
-        resolved = { label: trip.destination || trip.name, text: trip.destination, lat: trip.lat, lon: trip.lon };
+        const stop = tripStopsList[nextStopIndex] || tripStopsList[0];
+        resolved = stop && nextStopIndex > 0
+          ? { label: stop.name, text: stop.name, lat: stop.lat, lon: stop.lon }
+          : { label: trip.destination || trip.name, text: trip.destination, lat: trip.lat, lon: trip.lon };
       } else if (nextSource === 'aqui') {
         const position = await currentPosition();
         const named = await reverseGeocode(position.lat, position.lon).catch(() => null);
@@ -134,7 +142,7 @@ export default function RecommendationsView({ isStandalone = false }) {
 
   // Al entrar: el destino del viaje se carga solo; "Donde estoy" espera a que pulses (pide permiso)
   useEffect(() => {
-    const key = `viaje:${trip?.destination || trip?.name}`;
+    const key = `viaje:${tripStopsList[stopIndex]?.name || trip?.destination || trip?.name}`;
     if (source === 'viaje' && key !== memory.loadedKey) load('viaje');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -282,6 +290,19 @@ export default function RecommendationsView({ isStandalone = false }) {
             </button>
           ))}
         </div>
+        {source === 'viaje' && tripStopsList.length > 1 ? (
+          <Scroller>
+            <ul className="chips" aria-label={t('Destinos del viaje')}>
+              {tripStopsList.map((stop) => (
+                <li key={stop.index}>
+                  <button className={`chip chip--plain ${stop.index === stopIndex ? 'chip--active' : ''}`} type="button" aria-pressed={stop.index === stopIndex} onClick={() => { setStopIndex(stop.index); setIsShowingAll(false); load('viaje', null, stop.index); }}>
+                    <span className="chip__icon"><Icon name="pin" size={16} /></span>{shortStopName(stop)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Scroller>
+        ) : null}
         <form className="search search--form suggest-host" role="search" onSubmit={searchHandler}>
           <Icon name="search" />
           <label className="visually-hidden" htmlFor="recoQuery">{t('Buscar otra ciudad o zona')}</label>

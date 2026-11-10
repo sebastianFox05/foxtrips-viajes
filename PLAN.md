@@ -66,6 +66,7 @@ Añadidas despues: frases utiles en ingles, recomendaciones top 5 por ciudad (co
 
 | 2026-11-04 | Javascript | Sugerencias en todos los buscadores (destino, lugar, recomendaciones, viajes, frases) con codigos de ciudad (CTG, NYC, CDMX…), menu accesible y coordenadas exactas al elegir; boton para intercambiar monedas | `places.js`, `autocomplete.js`, vistas, `styles.css` | hecho |
 | 2026-11-10 | Orquestador | App mundial (1): idiomas de la interfaz (es, en, pt), formatos regionales (hora, temperatura, distancias, todas las monedas), zona horaria del destino y frases en 7 idiomas segun el pais | `src/lib/i18n/*`, `src/lib/locale.js`, `src/lib/currencies.js`, `src/lib/destination.js`, `src/lib/phrases.js`, vistas | hecho |
+| 2026-11-10 | Orquestador | App mundial (2): avisos push (cambios del grupo y recordatorios) y viajes con varios destinos | `netlify/functions/avisar.mjs`, `recordatorios.mjs`, `src/lib/push.js`, `src/lib/stops.js`, `supabase/avisos-y-paradas.sql`, vistas | hecho |
 
 ## Revisión (agente Review)
 

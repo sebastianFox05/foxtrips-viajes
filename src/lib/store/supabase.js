@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '../config.js';
 import { randomCode } from '../utils.js';
 import { t } from '../i18n/index.js';
+import { connectPushStore, notifyGroup, refreshPushSubscription } from '../push.js';
 
 const CACHE_PREFIX = 'foxtrips:cache:';
 const REALTIME_TABLES = ['activities', 'photos', 'comments', 'proposals', 'votes', 'documents', 'checklist_items', 'diary_entries', 'trip_members'];
@@ -75,9 +76,16 @@ function isDeleteOfTrip(table, tripId, old) {
   return rows.some((row) => row.id === old.id);
 }
 
-async function addLog(log) {
+/* Tipo de aviso push segun la tabla que cambia (cada persona elige en Perfil cuales recibe) */
+const PUSH_KIND = { trips: 'plan', activities: 'plan', proposals: 'votes', votes: 'votes' };
+
+async function addLog(log, table = '') {
   if (!log?.tripId || !log.text) return;
-  await supabase.from('activity_log').insert({ trip_id: log.tripId, actor_id: currentUser.id, actor_name: currentUser.name, text: log.text });
+  const { data } = await supabase.from('activity_log')
+    .insert({ trip_id: log.tripId, actor_id: currentUser.id, actor_name: currentUser.name, text: log.text })
+    .select('id').single();
+  // Avisa al resto del grupo en sus dispositivos (si tienen los avisos activados)
+  notifyGroup(data?.id, log.tripId, PUSH_KIND[table] || 'group');
 }
 
 /* ---- API publica (misma forma que store/local.js) ---- */
@@ -93,6 +101,7 @@ const supabaseStore = {
     if (params.has('recuperar') && data.session) isRecovery = true;
     if (params.has('code') || params.has('recuperar')) history.replaceState(null, '', location.pathname + location.hash);
     currentUser = data.session ? await loadProfile(data.session.user) : null;
+    if (currentUser) refreshPushSubscription();
     return currentUser;
   },
 
@@ -147,7 +156,23 @@ const supabaseStore = {
     currentUser = { ...currentUser, avatar_url: url };
   },
 
+  /* Avisos push: guarda o quita este dispositivo (ver src/lib/push.js) */
+  async savePushSubscription(subscription) {
+    check(await supabase.rpc('save_push_subscription', { sub: subscription }));
+  },
+
+  async forgetPushSubscription(endpoint) {
+    check(await supabase.rpc('forget_push_subscription', { endpoint_url: endpoint }));
+  },
+
   async signOut() {
+    // El dispositivo deja de recibir los avisos de esta cuenta
+    const registration = await navigator.serviceWorker?.getRegistration?.().catch(() => null);
+    const subscription = await registration?.pushManager?.getSubscription().catch(() => null);
+    if (subscription) {
+      await this.forgetPushSubscription(subscription.endpoint).catch(() => null);
+      await subscription.unsubscribe().catch(() => null);
+    }
     await supabase.auth.signOut();
     currentUser = null;
   },
@@ -178,7 +203,7 @@ const supabaseStore = {
 
   async updateTrip(id, patch, log) {
     const trip = check(await supabase.from('trips').update(patch).eq('id', id).select().single());
-    await addLog(log);
+    await addLog(log, 'trips');
     return trip;
   },
 
@@ -193,19 +218,21 @@ const supabaseStore = {
 
   async insert(table, row, log) {
     const saved = check(await supabase.from(table).insert(row).select().single());
-    await addLog(log);
+    // Una linea del historial escrita a mano (por ejemplo "subió 5 fotos") tambien se avisa
+    if (table === 'activity_log') notifyGroup(saved.id, saved.trip_id, 'group');
+    await addLog(log, table);
     return saved;
   },
 
   async update(table, id, patch, log) {
     const saved = check(await supabase.from(table).update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select().single());
-    await addLog(log);
+    await addLog(log, table);
     return saved;
   },
 
   async remove(table, id, log) {
     check(await supabase.from(table).delete().eq('id', id));
-    await addLog(log);
+    await addLog(log, table);
   },
 
   async listMembers(tripId) {
@@ -285,5 +312,7 @@ supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') currentUser = null;
   if (event === 'PASSWORD_RECOVERY') isRecovery = true;
 });
+
+connectPushStore(supabaseStore);
 
 export default supabaseStore;

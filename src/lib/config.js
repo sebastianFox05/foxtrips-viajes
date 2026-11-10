@@ -12,5 +12,9 @@ export const config = {
   // Cloudinary (fotos) → Dashboard → "Cloud name" y Settings → Upload → Upload preset sin firmar.
   // Si lo dejas vacio y usas Supabase, las fotos se guardan en Supabase Storage.
   cloudinaryCloudName: 'dlxcei9u',
-  cloudinaryUploadPreset: 'foxtrips'
+  cloudinaryUploadPreset: 'foxtrips',
+
+  // Avisos push: clave PUBLICA VAPID (la privada solo esta en Netlify, variable VAPID_PRIVATE_KEY).
+  // Vacia = sin avisos.
+  vapidPublicKey: 'BNHt0hyaCnK4UrNw9MuvYstjAeI5UjkcbJDYX4yZ1ngS9Ym-5-FBws6eRxK4-lm136UvG9PnE7-j9kpf5-us_2g'
 };

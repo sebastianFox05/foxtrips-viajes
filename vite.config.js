@@ -49,6 +49,8 @@ export default defineConfig({
         navigateFallback: null,
         globPatterns: ['**/*.{js,css,png,webmanifest}'],
         cleanupOutdatedCaches: true,
+        // Avisos push (public/push-sw.js): mostrar el aviso y abrir la app al pulsarlo
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           {
             urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.includes('/api/'),

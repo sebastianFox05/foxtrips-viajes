@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { store } from '../../lib/store/index.js';
 import { forecast, rates, tripWeather, weatherInfo } from '../../lib/services.js';
-import { currencyOptions, homeCurrency, setHomeCurrency } from '../../lib/currencies.js';
+import { currencyForCountry, currencyOptions, homeCurrency, setHomeCurrency } from '../../lib/currencies.js';
 import { formatDegrees, formatHours, formatTime, temperatureUnit, timeIn, zoneDifferenceHours, zoneLabel } from '../../lib/locale.js';
 import { nearestCityName } from '../../lib/places.js';
 import { eachDay, formatDay, formatMoney, formatWeekday, sortActivities, today, tripStatus } from '../../lib/utils.js';
@@ -67,12 +67,16 @@ function Upcoming({ tripId, activities, now }) {
  * Punto de cada dia: la ciudad donde ocurren la mayoria de sus actividades
  * (en un dia de carretera la primera actividad es la salida, no el destino) o, si no hay, el destino del viaje.
  */
-function weatherPoints(trip, activities) {
+function weatherPoints(trip, activities, stopOn) {
   const days = eachDay(trip.start_date, trip.end_date).slice(0, MAX_WEATHER_DAYS);
   const located = sortActivities(activities).filter((activity) => activity.lat != null && activity.day);
   return days.map((day) => {
     const ofDay = located.filter((activity) => activity.day === day);
-    if (!ofDay.length) return { day, lat: trip.lat, lon: trip.lon };
+    if (!ofDay.length) {
+      // Dia sin planes ubicados: la parada en la que se esta ese dia
+      const stop = stopOn(day);
+      return { day, lat: stop?.lat ?? trip.lat, lon: stop?.lon ?? trip.lon };
+    }
     const groups = new Map();
     for (const activity of ofDay) {
       const key = nearestCityName(activity.lat, activity.lon, 60) || `${activity.lat.toFixed(1)},${activity.lon.toFixed(1)}`;
@@ -98,9 +102,9 @@ function WeatherDay({ day, point }) {
   );
 }
 
-function WeatherCard({ trip, activities }) {
+function WeatherCard({ trip, activities, stopOn }) {
   const [state, setState] = useState({ status: 'loading' });
-  const points = useMemo(() => (trip.end_date && trip.end_date >= today() ? weatherPoints(trip, activities) : []), [trip, activities]);
+  const points = useMemo(() => (trip.end_date && trip.end_date >= today() ? weatherPoints(trip, activities, stopOn) : []), [trip, activities, stopOn]);
   const pointsKey = points.map((point) => `${point.day}@${point.lat},${point.lon}`).join('|');
 
   useEffect(() => {
@@ -231,7 +235,9 @@ function Converter({ tripCurrency }) {
 
 export default function SummaryView() {
   const navigate = useNavigate();
-  const { trip, tripId, isOwner, refreshKey, reloadTrip, timeZone, tripToday } = useTrip();
+  const { trip, tripId, isOwner, refreshKey, reloadTrip, timeZone, tripToday, stopOn, currentStop } = useTrip();
+  // Moneda del conversor: la del viaje en el primer destino; en las demas paradas, la de su pais
+  const stopCurrency = currentStop?.index ? currencyForCountry(currentStop.countryCode) : '';
   const { toast, toastError } = useUi();
   const { data } = useLoad(() => Promise.all([
     store.list('activities', tripId),
@@ -293,8 +299,8 @@ export default function SummaryView() {
           </div>
           <Upcoming tripId={trip.id} activities={activities} now={tripToday} />
         </section>
-        <WeatherCard trip={trip} activities={activities} />
-        <Converter tripCurrency={trip.currency} />
+        <WeatherCard trip={trip} activities={activities} stopOn={stopOn} />
+        <Converter key={stopCurrency || trip.currency} tripCurrency={stopCurrency || trip.currency} />
         <section className="card" aria-labelledby="shareTitle">
           <h2 className="card__title" id="shareTitle">{t('Compartir y exportar')}</h2>
           <p className="card__text">{t('Comparte una página de solo lectura con el itinerario y el álbum, o guarda el itinerario en PDF.')}</p>

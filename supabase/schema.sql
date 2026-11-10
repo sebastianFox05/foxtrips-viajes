@@ -572,3 +572,7 @@ create policy "documents_upload" on storage.objects for insert to authenticated
   with check (bucket_id = 'documents' and public.can_edit(public.folder_trip(name)));
 create policy "documents_delete" on storage.objects for delete to authenticated
   using (bucket_id = 'documents' and public.can_edit(public.folder_trip(name)));
+
+-- ----------------------------------------------------------------------------
+-- 9. Avisos push y viajes con varias paradas: ver supabase/avisos-y-paradas.sql (ejecutar despues de este archivo)
+-- ----------------------------------------------------------------------------
