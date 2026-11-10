@@ -22,6 +22,7 @@ import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useTrip } from './TripContext.jsx';
 import { PRINT_FLAG } from './TripLayout.jsx';
 import { TRAVEL_LABELS, dayInsights, formatMinutes } from './dayPlanning.js';
+import { shortStopName } from '../../lib/stops.js';
 import { formatDistance, formatHours, formatTime, intlLocale, zoneDifferenceHours, zoneLabel } from '../../lib/locale.js';
 import { getLanguage, m, t, tn } from '../../lib/i18n/index.js';
 
@@ -146,11 +147,12 @@ function HistoryContent({ activity }) {
 
 /* ---- Formulario de actividad ---- */
 
-function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', onSaved, onCancel }) {
+function ActivityForm({ trip, tripId, reelDays, stopOn, activity = {}, presetDay = '', onSaved, onCancel }) {
   const { toast, toastError } = useUi();
   const [isBusy, runBusy] = useBusy();
   const selected = activity.day ?? presetDay;
   const isOutside = selected && !reelDays.includes(selected);
+  const formStop = stopOn(selected || null);
 
   async function submitHandler(event) {
     event.preventDefault();
@@ -167,9 +169,11 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
           patch.lat = pickedLat;
           patch.lon = pickedLon;
         } else if (data.place !== (activity.place || '') || !data.place) {
-          const near = trip.lat != null ? { lat: trip.lat, lon: trip.lon } : null;
+          // Se busca cerca de la parada de ese dia (en un viaje con varios destinos, cada dia esta en una ciudad)
+          const stop = stopOn(data.day || null);
+          const near = stop?.lat != null ? { lat: stop.lat, lon: stop.lon } : null;
           const located = data.place
-            ? await geocode(near ? data.place : `${data.place}, ${trip.destination || ''}`, near).catch(() => null)
+            ? await geocode(near ? data.place : `${data.place}, ${stop?.name || trip.destination || ''}`, near).catch(() => null)
             : null;
           patch.lat = located?.lat ?? null;
           patch.lon = located?.lon ?? null;
@@ -234,7 +238,7 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
           maxLength={160}
           defaultValue={activity.place || ''}
           placeholder={t('Museo, restaurante, dirección…')}
-          near={trip.lat != null ? { lat: trip.lat, lon: trip.lon } : null}
+          near={formStop?.lat != null ? { lat: formStop.lat, lon: formStop.lon } : null}
           isOverlay
           withCoords
           defaultCoords={{ lat: activity.lat, lon: activity.lon }}
@@ -377,7 +381,7 @@ function DroppableDaySection({ day, children }) {
 }
 
 /* Tarjeta de dia del carrete: tambien es destino al arrastrar un plan (lo mueve a ese dia, con su misma hora) */
-function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
+function DayCard({ day, index, list, isActive, coverUrl, stopName, onSelect }) {
   const { setNodeRef, isOver } = useDroppable({ id: `${DAY_DROP_PREFIX}${day}` });
   const withImage = list.find((activity) => activity.image_url);
   const image = withImage?.image_url || coverUrl;
@@ -399,6 +403,7 @@ function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
         <span className="day-card__tags">
           <span className="day-card__tag">{label}</span>
           <span className="day-card__tag">{tn(list.length, '{n} plan', '{n} planes')}</span>
+          {stopName ? <span className="day-card__tag"><Icon name="pin" size={12} /> {stopName}</span> : null}
         </span>
         <span className="day-card__bottom">
           <span className="day-card__weekday">{isLoose ? t('Sin fecha') : formatWeekday(day)}</span>
@@ -410,7 +415,9 @@ function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
 }
 
 export default function ItineraryView() {
-  const { trip, tripId, canEdit, refreshKey, refresh, timeZone, tripToday } = useTrip();
+  const { trip, tripId, canEdit, refreshKey, refresh, tripToday, stops, stopOn } = useTrip();
+  const hasStops = stops.length > 1;
+  const stopNameOn = (day) => (hasStops && day !== LOOSE_KEY ? shortStopName(stopOn(day)) : '');
   const { openModal, closeModal, confirm, toast, toastError } = useUi();
   const [mode, setMode] = useState(currentMode);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -544,12 +551,12 @@ export default function ItineraryView() {
   }
 
   function newActivityHandler(day) {
-    openModal(t('Nueva actividad'), <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} presetDay={day === LOOSE_KEY ? '' : day} onSaved={savedHandler} onCancel={closeModal} />);
+    openModal(t('Nueva actividad'), <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} stopOn={stopOn} presetDay={day === LOOSE_KEY ? '' : day} onSaved={savedHandler} onCancel={closeModal} />);
   }
 
   const handlers = {
     edit(activity) {
-      openModal(t('Editar actividad'), <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} activity={activity} onSaved={savedHandler} onCancel={closeModal} />);
+      openModal(t('Editar actividad'), <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} stopOn={stopOn} activity={activity} onSaved={savedHandler} onCancel={closeModal} />);
     },
     async remove(activity) {
       const isConfirmed = await confirm(t('Se quitará "{title}" del itinerario. Sus fotos seguirán en el álbum.', { title: activity.title }));
@@ -717,7 +724,8 @@ export default function ItineraryView() {
   }
 
   function reelView() {
-    const { main, sub } = bigDate(currentDay);
+    const { main, sub: weekday } = bigDate(currentDay);
+    const sub = [weekday, stopNameOn(currentDay)].filter(Boolean).join(' · ');
     return (
       <>
         <section className="day-reel" aria-label={t('Días del viaje')}>
@@ -726,7 +734,7 @@ export default function ItineraryView() {
           <div className="day-reel__viewport">
             <button className="day-reel__nav day-reel__nav--prev" type="button" aria-label={t('Día anterior')} onClick={() => stepHandler(-1)}><Icon name="back" /></button>
             <ul className="day-reel__track" id="reelTrack" ref={trackRef}>
-              {keys.map((day, index) => <DayCard key={day} day={day} index={index} list={activitiesOf(day)} isActive={day === currentDay} coverUrl={trip.cover_url} onSelect={(value) => selectDay(value, { shouldScroll: true })} />)}
+              {keys.map((day, index) => <DayCard key={day} day={day} index={index} list={activitiesOf(day)} isActive={day === currentDay} coverUrl={trip.cover_url} stopName={stopNameOn(day)} onSelect={(value) => selectDay(value, { shouldScroll: true })} />)}
             </ul>
             <button className="day-reel__nav day-reel__nav--next" type="button" aria-label={t('Día siguiente')} onClick={() => stepHandler(1)}><Icon name="next" /></button>
           </div>
@@ -759,7 +767,7 @@ export default function ItineraryView() {
             <DroppableDaySection day={day} key={day}>
               <header className="day__header">
                 <div>
-                  <span className="day__label">{isLoose ? t('Sin día asignado') : t('Día {n}', { n: index + 1 })}</span>
+                  <span className="day__label">{isLoose ? t('Sin día asignado') : [t('Día {n}', { n: index + 1 }), stopNameOn(day)].filter(Boolean).join(' · ')}</span>
                   <h3 className="day__date" id={`title-${day}`}>{isLoose ? t('Ideas sueltas') : formatDay(day)}</h3>
                 </div>
                 {canEdit ? <button className="btn btn--small" type="button" onClick={() => newActivityHandler(day)}><Icon name="plus" size={16} /> {t('Añadir')}</button> : null}
@@ -774,10 +782,13 @@ export default function ItineraryView() {
 
   const printDays = reelDays.concat(activitiesOf(LOOSE_KEY).length ? [LOOSE_KEY] : []);
   // Las horas del plan son las del destino: se avisa cuando no coinciden con la hora del dispositivo
+  // Las horas son las de la parada del dia que se mira (cada ciudad puede tener su zona horaria)
+  const dayStop = stopOn(currentDay && currentDay !== LOOSE_KEY ? currentDay : tripToday);
+  const timeZone = dayStop?.timeZone || '';
   const zoneHours = zoneDifferenceHours(timeZone);
   const zoneNote = zoneHours
     ? t(zoneHours > 0 ? 'Las horas del plan son la hora local de {place} ({zone}): {hours} h más que tu hora.' : 'Las horas del plan son la hora local de {place} ({zone}): {hours} h menos que tu hora.',
-      { place: trip.destination || trip.name, zone: zoneLabel(timeZone), hours: formatHours(zoneHours) })
+      { place: dayStop?.name || trip.destination || trip.name, zone: zoneLabel(timeZone), hours: formatHours(zoneHours) })
     : '';
   return (
     <div id="itinerary">

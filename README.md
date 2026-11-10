@@ -68,7 +68,8 @@ En Supabase → **Authentication → URL Configuration**:
 - **Site URL:** `https://foxtrips-viajes.netlify.app`
 - **Redirect URLs:** `https://foxtrips-viajes.netlify.app/**` y, para probar en local, `http://localhost:5173/**`
 
-Para publicar cambios, pídeselo a Claude o usa `netlify deploy --prod` desde esta carpeta.
+El proyecto de Netlify está conectado a este repositorio: cada cambio que entra en `main` se publica solo y cada pull request tiene su vista previa (`deploy-preview-<n>--foxtrips-viajes.netlify.app`).
+Para entrar con Google en las vistas previas, en Supabase → Redirect URLs añade también `https://*--foxtrips-viajes.netlify.app/**`.
 
 ## Idiomas y región
 
@@ -78,6 +79,21 @@ Para publicar cambios, pídeselo a Claude o usa `netlify deploy --prod` desde es
 - **Zona horaria**: las horas de los planes son siempre las del destino. El resumen muestra la hora actual allí y el itinerario avisa de la diferencia con tu hora (`src/lib/destination.js`).
 - **Frases**: 95 frases en inglés, español, portugués, francés, italiano, alemán y japonés (`src/lib/phrases.js`). Se muestran en el idioma del país del destino y se explican en el idioma de la app.
 - El historial guarda cada cambio escrito en el idioma de quien lo hizo.
+
+## Avisos push
+
+- Cada persona los activa en Perfil → «Avisos» (por dispositivo) y elige qué recibe: cambios en el plan, votaciones, el grupo (fotos, diario, documentos, equipaje) y recordatorios.
+- **Cambios del grupo**: al guardar un cambio con historial, la app llama a `POST /api/avisar` (`netlify/functions/avisar.mjs`). La función SQL `push_targets` comprueba con la sesión que el cambio es de quien llama, reciente y sin avisar, y devuelve los dispositivos del resto del grupo. Varios cambios seguidos de la misma persona (menos de 20 s) dan un solo aviso.
+- **Recordatorios** (`netlify/functions/recordatorios.mjs`, cada hora): a las 19 h del día antes de salir y a las 8 h de cada día del viaje con planes, en la hora y el idioma de cada dispositivo. Los decide la función SQL `due_reminders`, protegida con un secreto.
+- **Variables de entorno en Netlify**: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (la dirección de la web) y `REMINDERS_SECRET`. La clave pública también está en `src/lib/config.js`; la huella sha256 del secreto, en la tabla `app_settings` de Supabase.
+- En iPhone y iPad solo funcionan con la app instalada en la pantalla de inicio (iOS 16.4 o posterior). En modo local y en la copia de GitHub Pages no hay avisos.
+- El SQL está en `supabase/avisos-y-paradas.sql`.
+
+## Viajes con varios destinos
+
+- En el formulario del viaje, «Más destinos» añade paradas con su día de llegada (Roma → Florencia → Venecia). El destino principal es la primera parada; cada una dura hasta el día antes de la siguiente.
+- Se guardan en `trips.stops` (`src/lib/stops.js`). Cada día del itinerario muestra su ciudad, el clima y la búsqueda de lugares usan la parada de ese día, el mapa dibuja la ruta entre ciudades y las recomendaciones dejan elegir destino.
+- La hora, el idioma de las frases y la moneda del conversor siguen a la parada en la que estáis hoy.
 
 ## Roles
 

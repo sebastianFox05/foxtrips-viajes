@@ -16,6 +16,17 @@ const DAY_COLORS = ['#f08a3c', '#2f80ed', '#9b51e0', '#27ae60', '#eb5757', '#f2c
 // El filtro de dia se recuerda al volver al mapa
 let rememberedDay = 'all';
 
+/* Marcador de una parada del viaje (ciudad): cuadrado oscuro con su numero */
+function stopIcon(number) {
+  return L.divIcon({
+    className: '',
+    html: `<span class="map-stop">${esc(String(number))}</span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14]
+  });
+}
+
 function pinIcon(label, color) {
   return L.divIcon({
     className: '',
@@ -28,7 +39,7 @@ function pinIcon(label, color) {
 
 export default function MapView() {
   const location = useLocation();
-  const { trip, tripId, refreshKey } = useTrip();
+  const { trip, tripId, refreshKey, stops, stopOn } = useTrip();
   const canvasRef = useRef(null);
   const mapRef = useRef(null);
   const layersRef = useRef([]);
@@ -84,17 +95,33 @@ export default function MapView() {
       if (activity.id === focusId) setTimeout(() => marker.openPopup(), 300);
       if (activity.day) byDay.set(activity.day, [...(byDay.get(activity.day) || []), [activity.lat, activity.lon]]);
     }
+    // Viaje con varias paradas: cada ciudad con su numero y la ruta entre ellas
+    const locatedStops = stops.filter((stop) => stop.lat != null);
+    if (locatedStops.length > 1) {
+      const visibleStops = activeDay === 'all' ? locatedStops : locatedStops.filter((stop) => stop.index === stopOn(activeDay)?.index);
+      for (const stop of visibleStops) {
+        const when = [stop.from, stop.to].filter(Boolean).map((day) => formatDay(day, { day: 'numeric', month: 'short' }));
+        const marker = L.marker([stop.lat, stop.lon], { icon: stopIcon(stop.index + 1), title: stop.name, zIndexOffset: -100 })
+          .addTo(map)
+          .bindPopup(`<strong>${esc(stop.name)}</strong>${when.length ? `<br>${esc([...new Set(when)].join(' – '))}` : ''}`);
+        layersRef.current.push(marker);
+        if (!located.length || activeDay === 'all') bounds.push([stop.lat, stop.lon]);
+      }
+      if (activeDay === 'all') {
+        layersRef.current.push(L.polyline(locatedStops.map((stop) => [stop.lat, stop.lon]), { color: '#141414', weight: 3, opacity: 0.55 }).addTo(map));
+      }
+    }
     byDay.forEach((points, day) => {
       if (points.length > 1) layersRef.current.push(L.polyline(points, { color: colorFor(day), weight: 4, opacity: 0.75, dashArray: '6 8' }).addTo(map));
     });
     const focus = activities.find((activity) => activity.id === focusId && activity.lat != null);
     if (focus) map.setView([focus.lat, focus.lon], 15);
     else if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40] });
-    else if (bounds.length === 1) map.setView(bounds[0], 14);
+    else if (bounds.length === 1) map.setView(bounds[0], located.length ? 14 : 11);
     else if (trip.lat != null) map.setView([trip.lat, trip.lon], 11);
     else map.setView([20, -40], 2);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, activeDay, data]);
+  }, [activities, activeDay, data, stops]);
 
   if (!data) return null;
   const missing = activities.filter((activity) => activity.lat == null && activity.place).length;

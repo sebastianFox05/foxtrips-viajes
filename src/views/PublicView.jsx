@@ -2,6 +2,7 @@
 import { store } from '../lib/store/index.js';
 import { eachDay, formatDay, formatRange, sortActivities } from '../lib/utils.js';
 import { formatTime } from '../lib/locale.js';
+import { routeLabel } from '../lib/stops.js';
 import Icon from '../components/Icon.jsx';
 import Picture from '../components/Picture.jsx';
 import useLoad from '../hooks/useLoad.js';
@@ -30,7 +31,7 @@ export default function PublicView({ token }) {
         <div className="hero__content">
           <p className="hero__kicker">{formatRange(trip.start_date, trip.end_date)}</p>
           <h1 className="hero__title">{trip.name}</h1>
-          {trip.destination ? <p className="hero__place"><Icon name="pin" size={16} /> {trip.destination}</p> : null}
+          {trip.destination ? <p className="hero__place"><Icon name="pin" size={16} /> {routeLabel(trip)}</p> : null}
           {trip.description ? <div className="glass"><p className="glass__text">{trip.description}</p></div> : null}
         </div>
       </header>

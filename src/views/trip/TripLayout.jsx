@@ -8,6 +8,7 @@ import { daysBetween, formatRange, tripStatus } from '../../lib/utils.js';
 import { useTripActions } from '../trips/TripForm.jsx';
 import { SECTIONS, MOBILE_KEYS } from './sections.js';
 import { TripProvider, useTrip } from './TripContext.jsx';
+import { routeLabel } from '../../lib/stops.js';
 import { t, tn } from '../../lib/i18n/index.js';
 
 export const PRINT_FLAG = 'foxtrips:print';
@@ -43,7 +44,7 @@ function Hero({ sectionKey }) {
       <div className="hero__content">
         <p className="hero__kicker">{isTall ? formatRange(trip.start_date, trip.end_date) : section ? t(section.label) : ''}</p>
         <h1 className={`hero__title ${isTall ? '' : 'hero__title--compact'}`}>{trip.name}</h1>
-        {trip.destination ? <p className="hero__place"><Icon name="pin" size={16} /> {trip.destination}</p> : null}
+        {trip.destination ? <p className="hero__place"><Icon name="pin" size={16} /> {routeLabel(trip)}</p> : null}
         {isTall ? (
           <div className="glass">
             <div className="glass__top">

@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { store } from '../../lib/store/index.js';
 import { debounce, registerAvatars, today } from '../../lib/utils.js';
 import { destinationInfo, knownDestination } from '../../lib/destination.js';
+import { stopForDay, tripStops } from '../../lib/stops.js';
 import { todayIn } from '../../lib/locale.js';
 import { t } from '../../lib/i18n/index.js';
 import { notifyComments } from '../../components/Comments.jsx';
@@ -25,7 +26,8 @@ function isTyping() {
 export function TripProvider({ tripId, children }) {
   const [state, setState] = useState({ trip: null, members: [], error: null, isLoading: true });
   const [refreshKey, setRefreshKey] = useState(0);
-  const [destination, setDestination] = useState({});
+  // Zona horaria y pais de cada parada, por posicion: [{ timeZone, countryCode }]
+  const [stopsInfo, setStopsInfo] = useState([]);
   const busyRef = useRef(false);
   const pendingRef = useRef(false);
 
@@ -46,17 +48,19 @@ export function TripProvider({ tripId, children }) {
     loadTrip();
   }, [loadTrip]);
 
-  // Zona horaria y pais del destino: primero lo recordado, luego lo que diga la red
-  const tripLat = state.trip?.lat;
-  const tripLon = state.trip?.lon;
+  // Zona horaria y pais de cada parada: primero lo recordado, luego lo que diga la red
+  const stops = useMemo(() => tripStops(state.trip), [state.trip]);
+  const stopsKey = stops.map((stop) => `${stop.lat},${stop.lon}`).join('|');
   useEffect(() => {
     let isCurrent = true;
-    setDestination(knownDestination(tripLat, tripLon));
-    destinationInfo(tripLat, tripLon).then((info) => isCurrent && setDestination(info)).catch(() => null);
+    setStopsInfo(stops.map((stop) => knownDestination(stop.lat, stop.lon)));
+    Promise.all(stops.map((stop) => destinationInfo(stop.lat, stop.lon).catch(() => ({}))))
+      .then((list) => isCurrent && setStopsInfo(list));
     return () => {
       isCurrent = false;
     };
-  }, [tripLat, tripLon]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopsKey]);
 
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
 
@@ -111,6 +115,11 @@ export function TripProvider({ tripId, children }) {
   const value = useMemo(() => {
     const { trip, members } = state;
     const role = trip?.role;
+    // Paradas con su zona horaria y pais; la de hoy se elige con la fecha del dispositivo y luego la de alli
+    const fullStops = stops.map((stop, index) => ({ ...stop, timeZone: stopsInfo[index]?.timeZone || '', countryCode: stopsInfo[index]?.countryCode || '' }));
+    const roughStop = stopForDay(fullStops, today());
+    const tripToday = (roughStop?.timeZone && todayIn(roughStop.timeZone)) || today();
+    const currentStop = stopForDay(fullStops, tripToday);
     return {
       tripId,
       trip,
@@ -118,16 +127,20 @@ export function TripProvider({ tripId, children }) {
       role,
       canEdit: canEdit(role),
       isOwner: role === 'owner',
-      // Del destino: zona horaria (IANA), pais (dos letras) y la fecha de hoy alli
-      timeZone: destination.timeZone || '',
-      countryCode: destination.countryCode || '',
-      tripToday: (destination.timeZone && todayIn(destination.timeZone)) || today(),
+      // Paradas del viaje (la primera es el destino principal) y la parada de un dia concreto
+      stops: fullStops,
+      currentStop,
+      stopOn: (day) => stopForDay(fullStops, day),
+      // De la parada de hoy: zona horaria (IANA), pais (dos letras) y la fecha de hoy alli
+      timeZone: currentStop?.timeZone || '',
+      countryCode: currentStop?.countryCode || '',
+      tripToday,
       refreshKey,
       refresh,
       reloadTrip: loadTrip,
       setBusy
     };
-  }, [state, tripId, refreshKey, refresh, loadTrip, setBusy, destination]);
+  }, [state, tripId, refreshKey, refresh, loadTrip, setBusy, stops, stopsInfo]);
 
   return <TripContext.Provider value={{ ...value, error: state.error, isLoading: state.isLoading }}>{children}</TripContext.Provider>;
 }

@@ -13,6 +13,7 @@ import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useSession } from '../../session/SessionContext.jsx';
 import AuthVisual from './AuthVisual.jsx';
 import RegionSettings, { LanguagePicker } from './RegionSettings.jsx';
+import PushSettings from './PushSettings.jsx';
 import { takePendingInvite } from './invite.js';
 import { m, t } from '../../lib/i18n/index.js';
 
@@ -380,6 +381,7 @@ export function ProfileView() {
           </form>
         </section>
         <RegionSettings />
+        <PushSettings />
         <section className="card">
           <h2 className="card__title">{t('Almacenamiento')}</h2>
           <ul className="rows">

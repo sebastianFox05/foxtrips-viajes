@@ -6,6 +6,7 @@ import { CITY_CODES, cityNames, normalize } from '../../lib/places.js';
 import { registerSuggestions } from '../../lib/suggestions.js';
 import { daysBetween, formatRange, registerAvatars, tripStatus } from '../../lib/utils.js';
 import { createDemoTrip } from '../../lib/demo.js';
+import { routeLabel } from '../../lib/stops.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import { AvatarStack } from '../../components/Avatar.jsx';
@@ -33,7 +34,7 @@ let knownTrips = [];
 function tripMatches(trip, query) {
   const text = normalize(query);
   if (!text) return true;
-  const haystack = normalize(`${trip.name} ${trip.destination || ''}`);
+  const haystack = normalize(`${trip.name} ${trip.destination || ''} ${(trip.stops || []).map((stop) => stop.name).join(' ')}`);
   if (haystack.includes(text)) return true;
   const code = text.replace(/[\s.]/g, '').toUpperCase();
   const city = CITY_CODES.find((entry) => entry.codes.includes(code));
@@ -43,7 +44,7 @@ function tripMatches(trip, query) {
 function tripSuggestions(query) {
   return knownTrips.filter((trip) => tripMatches(trip, query)).slice(0, 6).map((trip) => ({
     name: trip.name,
-    detail: [trip.destination, formatRange(trip.start_date, trip.end_date)].filter(Boolean).join(' · '),
+    detail: [routeLabel(trip), formatRange(trip.start_date, trip.end_date)].filter(Boolean).join(' · '),
     value: trip.name,
     href: `#/viaje/${trip.id}`,
     icon: 'calendar'
@@ -74,7 +75,7 @@ function TripCard({ trip, position, people }) {
           <p className="photo-card__kicker">{formatRange(trip.start_date, trip.end_date)}{days ? ` · ${tn(days, '{n} día', '{n} días')}` : ''}</p>
           <h3 className="photo-card__title"><a className="photo-card__link" href={`#/viaje/${trip.id}`}>{trip.name}</a></h3>
           <div className="photo-card__footer">
-            <span className="photo-card__place"><Icon name="pin" size={16} /> {trip.destination || t('Destino por decidir')}</span>
+            <span className="photo-card__place"><Icon name="pin" size={16} /> {routeLabel(trip) || t('Destino por decidir')}</span>
             <AvatarStack people={people} />
           </div>
         </div>
