@@ -78,6 +78,17 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * Nada puede hacer la pagina mas ancha que la pantalla. En iPhone, si un elemento se sale aunque sea un poco,
+ * Safari aleja toda la pagina y la app instalada se ve encogida con una franja a la derecha.
+ * "clip" recorta sin crear una zona de scroll (las cabeceras pegajosas siguen funcionando).
+ */
+/* En body solo "clip": "hidden" lo convertiria en zona de scroll y romperia las cabeceras pegajosas */
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -1215,6 +1226,11 @@ svg {
   .info-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+}
+
+.info-row__item > div {
+  /* El texto del dato se corta con … en vez de ensanchar la tarjeta */
+  min-width: 0;
 }
 
 .info-row__item {
