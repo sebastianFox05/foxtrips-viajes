@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const CHECK_DELAY_MS = 1500;
-const MAX_ITEMS = 5;
+const MAX_ITEMS = 6;
 
 function describe(element) {
   const id = element.id ? `#${element.id}` : '';
@@ -15,30 +15,38 @@ function describe(element) {
   return `${element.tagName.toLowerCase()}${id}${classes}`;
 }
 
+function path(element) {
+  const parts = [];
+  for (let node = element; node && node !== document.body && parts.length < 4; node = node.parentElement) parts.unshift(describe(node));
+  return parts.join(' > ');
+}
+
 /*
- * Elementos que se salen por la derecha aunque su contenedor cabe: son los que empujan la pagina.
- * Se ignoran los fijos (barra inferior, avisos), el interior de los dibujos SVG y lo que esta dentro de una zona con scroll.
+ * Elementos que llegan mas alla del borde derecho, sin excepciones (tambien fijos y dentro de zonas con scroll),
+ * ordenados por cuanto se salen. Se marca entre corchetes si es fijo o si esta dentro de una zona con scroll.
  */
 function offenders(limit) {
   const found = [];
   for (const element of document.body.querySelectorAll('*')) {
-    if (element.closest('svg') && element.tagName.toLowerCase() !== 'svg') continue;
     if (element.closest('.overflow-probe')) continue;
+    if (element.closest('svg') && element.tagName.toLowerCase() !== 'svg') continue;
     const box = element.getBoundingClientRect();
     if (!box.width || box.right <= limit + 1) continue;
-    const parent = element.parentElement;
-    if (!parent || parent.getBoundingClientRect().right > limit + 1) continue;
-    let node = element;
-    let isIgnored = false;
-    while (node && node !== document.body) {
-      const style = getComputedStyle(node);
-      if (style.position === 'fixed') isIgnored = true;
-      if (node !== element && ['auto', 'scroll'].includes(style.overflowX)) isIgnored = true;
-      node = node.parentElement;
+    const style = getComputedStyle(element);
+    let marks = style.position === 'fixed' ? ' [fijo]' : '';
+    for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+      if (['auto', 'scroll'].includes(getComputedStyle(node).overflowX)) {
+        marks += ` [dentro de scroll: ${describe(node)}]`;
+        break;
+      }
     }
-    if (!isIgnored) found.push(`${describe(element)} dentro de ${describe(parent)} → ${Math.round(box.right)}px (${Math.round(box.width)} de ancho)`);
+    const parentRight = element.parentElement ? element.parentElement.getBoundingClientRect().right : 0;
+    found.push({ right: box.right, isFixed: Boolean(marks.includes('[fijo]')) || Boolean(element.closest('#bottomNav, #toasts')), isPusher: parentRight <= limit + 1, text: `${path(element)} → ${Math.round(box.right)}px${marks}` });
   }
-  return found.slice(0, MAX_ITEMS);
+  // Primero los que se salen aunque su contenedor cabe (los que empujan), luego los que mas se salen
+  // Los fijos (barra inferior, avisos) se estiran con la pagina: van al final
+  found.sort((first, second) => Number(first.isFixed) - Number(second.isFixed) || Number(second.isPusher) - Number(first.isPusher) || second.right - first.right);
+  return found.slice(0, MAX_ITEMS).map((item) => (item.isPusher ? `★ ${item.text}` : item.text));
 }
 
 export default function OverflowProbe() {
@@ -52,7 +60,9 @@ export default function OverflowProbe() {
       const screenWidth = Math.min(window.screen.width, document.documentElement.clientWidth || window.screen.width);
       const pageWidth = Math.max(document.documentElement.scrollWidth, window.innerWidth);
       if (pageWidth <= screenWidth + 1) return;
-      setReport({ screenWidth, pageWidth, items: offenders(screenWidth) });
+      const scale = window.visualViewport ? window.visualViewport.scale.toFixed(2) : '?';
+      const details = `scroll ${document.documentElement.scrollWidth} · ventana ${window.innerWidth} · zoom ${scale}`;
+      setReport({ screenWidth, pageWidth, details, items: offenders(screenWidth) });
     };
     const timers = [setTimeout(check, CHECK_DELAY_MS), setTimeout(check, CHECK_DELAY_MS * 3)];
     return () => timers.forEach(clearTimeout);
@@ -62,6 +72,7 @@ export default function OverflowProbe() {
   return (
     <div className="overflow-probe" role="status">
       <strong>Diagnóstico de ancho · pantalla {report.screenWidth}px, página {report.pageWidth}px</strong>
+      <span>{report.details}</span>
       {report.items.length ? report.items.map((item) => <span key={item}>{item}</span>) : <span>No se encontró el elemento.</span>}
       <button type="button" onClick={() => setReport(null)}>Cerrar</button>
     </div>
