@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const CHECK_DELAY_MS = 1500;
-const MAX_ITEMS = 6;
+const MAX_ITEMS = 8;
 
 function describe(element) {
   const id = element.id ? `#${element.id}` : '';
@@ -34,12 +34,16 @@ function offenders(limit) {
     if (!box.width || box.right <= limit + 1) continue;
     const style = getComputedStyle(element);
     let marks = style.position === 'fixed' ? ' [fijo]' : '';
+    // Dentro de una zona con scroll o recorte que si cabe en la pantalla: esta bien recortado, no cuenta
+    let isClipped = false;
     for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
-      if (['auto', 'scroll'].includes(getComputedStyle(node).overflowX)) {
-        marks += ` [dentro de scroll: ${describe(node)}]`;
+      if (['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(node).overflowX)) {
+        if (node.getBoundingClientRect().right <= limit + 1) isClipped = true;
+        else marks += ` [dentro de ${describe(node)}, que tambien se sale]`;
         break;
       }
     }
+    if (isClipped) continue;
     const parentRight = element.parentElement ? element.parentElement.getBoundingClientRect().right : 0;
     found.push({ right: box.right, isFixed: Boolean(marks.includes('[fijo]')) || Boolean(element.closest('#bottomNav, #toasts')), isPusher: parentRight <= limit + 1, text: `${path(element)} → ${Math.round(box.right)}px${marks}` });
   }
