@@ -48,6 +48,24 @@ function offenders(limit) {
     found.push({ right: box.right, isFixed: Boolean(marks.includes('[fijo]')) || Boolean(element.closest('#bottomNav, #toasts')), isPusher: parentRight <= limit + 1, text: `${path(element)} → ${Math.round(box.right)}px${marks}` });
   }
   // Primero los que se salen aunque su contenedor cabe (los que empujan), luego los que mas se salen
+  // Textos que se salen de su caja (la caja cabe pero las letras no): no aparecen como elementos
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const owner = node.parentElement;
+    if (!owner || !node.textContent.trim() || owner.closest('.overflow-probe, #bottomNav, #toasts')) continue;
+    range.selectNodeContents(node);
+    const right = range.getBoundingClientRect().right;
+    if (right <= limit + 1) continue;
+    let isClipped = false;
+    for (let parent = owner; parent && parent !== document.body; parent = parent.parentElement) {
+      if (['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(parent).overflowX)) {
+        isClipped = parent.getBoundingClientRect().right <= limit + 1;
+        break;
+      }
+    }
+    if (!isClipped) found.push({ right, isFixed: false, isPusher: true, text: `texto «${node.textContent.trim().slice(0, 30)}» en ${path(owner)} → ${Math.round(right)}px` });
+  }
   // Los fijos (barra inferior, avisos) se estiran con la pagina: van al final
   found.sort((first, second) => Number(first.isFixed) - Number(second.isFixed) || Number(second.isPusher) - Number(first.isPusher) || second.right - first.right);
   return found.slice(0, MAX_ITEMS).map((item) => (item.isPusher ? `★ ${item.text}` : item.text));
