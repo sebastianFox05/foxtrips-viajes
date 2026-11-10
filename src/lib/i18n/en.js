@@ -742,5 +742,9 @@ export default {
   "Parada {n}": "Stop {n}",
   "Llegada": "Arrival",
   "Quitar la parada {n}": "Remove stop {n}",
-  "Añadir destino": "Add destination"
+  "Añadir destino": "Add destination",
+  "FoxTrips": "FoxTrips",
+  "Así te llegarán los avisos del grupo.": "This is how group notifications will look.",
+  "No se pudo mostrar el aviso. Revisa que las notificaciones del navegador estén permitidas en los ajustes del sistema.": "The notification couldn't be shown. Check that browser notifications are allowed in your system settings.",
+  "Probar en este dispositivo": "Test on this device"
 };

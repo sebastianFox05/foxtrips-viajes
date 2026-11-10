@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { m, t } from '../../lib/i18n/index.js';
-import { PUSH_TOPICS, disablePush, enablePush, needsInstallForPush, pushStatus, readPushPrefs, updatePushPrefs } from '../../lib/push.js';
+import { PUSH_TOPICS, testPushHere, disablePush, enablePush, needsInstallForPush, pushStatus, readPushPrefs, updatePushPrefs } from '../../lib/push.js';
 import { store } from '../../lib/store/index.js';
 import Icon from '../../components/Icon.jsx';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
@@ -51,6 +51,15 @@ export default function PushSettings() {
     }
   }
 
+  async function testHandler() {
+    try {
+      await testPushHere(t('FoxTrips'), t('Así te llegarán los avisos del grupo.'));
+    } catch (error) {
+      toastError(new Error(t('No se pudo mostrar el aviso. Revisa que las notificaciones del navegador estén permitidas en los ajustes del sistema.')));
+      console.error(error);
+    }
+  }
+
   async function topicHandler(topic, isOn) {
     const next = { ...prefs, [topic]: isOn };
     setPrefs(next);
@@ -73,6 +82,7 @@ export default function PushSettings() {
           <button className={`btn btn--top ${status === 'on' ? '' : 'btn--primary'}`} type="button" onClick={toggleHandler} disabled={isBusy}>
             {isBusy ? t('Guardando…') : status === 'on' ? t('Desactivar avisos') : t('Activar avisos')}
           </button>
+          {status === 'on' ? <button className="btn btn--top btn--ghost" type="button" onClick={testHandler}>{t('Probar en este dispositivo')}</button> : null}
           {status === 'on' ? (
             <fieldset className="push-topics">
               <legend className="form__label">{t('Qué quieres recibir')}</legend>

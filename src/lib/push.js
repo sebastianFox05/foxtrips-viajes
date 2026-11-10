@@ -129,6 +129,17 @@ export async function refreshPushSubscription() {
   if (subscription) await saveSubscription(subscription, readPushPrefs()).catch(() => null);
 }
 
+/* Muestra un aviso de prueba en este dispositivo (comprueba permiso y ajustes del sistema, sin pasar por el servidor) */
+export async function testPushHere(title, body) {
+  const reg = await registration();
+  await reg.showNotification(title, {
+    body,
+    tag: 'foxtrips-prueba',
+    icon: new URL('assets/img/icono-192.png', reg.scope).href,
+    data: { url: reg.scope }
+  });
+}
+
 /* Avisa al resto del grupo de un cambio recien guardado (sin esperar ni molestar si falla) */
 export function notifyGroup(logId, tripId, kind) {
   if (!cloudStore || !HAS_SERVER_FUNCTIONS || !logId) return;
