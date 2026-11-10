@@ -89,6 +89,12 @@ body {
   overflow-x: clip;
 }
 
+/* Todo lo que no es fijo vive en #root: si algo se sale a lo ancho, se recorta aqui (Safari no siempre respeta el recorte de body) */
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
