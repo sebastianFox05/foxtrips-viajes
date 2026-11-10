@@ -7,28 +7,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon.jsx';
 import { markWelcomeSeen, photoSources } from './welcomeState.js';
+import { m, t } from '../../lib/i18n/index.js';
 
 const AUTOPLAY_MS = 6500;
 const SLIDES = [
   {
     photo: 'road',
-    title: ['Explora', 'la belleza', 'del mundo'],
-    text: 'Descubre destinos increíbles, planea tu escapada perfecta y vive aventuras inolvidables con tu gente.'
+    title: m('Explora|la belleza|del mundo'),
+    text: m('Descubre destinos increíbles, planea tu escapada perfecta y vive aventuras inolvidables con tu gente.')
   },
   {
     photo: 'lake',
-    title: ['Planead', 'el viaje', 'juntos'],
-    text: 'Un itinerario que todo el grupo puede editar, con votaciones para decidir cada plan sin cadenas eternas de mensajes.'
+    title: m('Planead|el viaje|juntos'),
+    text: m('Un itinerario que todo el grupo puede editar, con votaciones para decidir cada plan sin cadenas eternas de mensajes.')
   },
   {
     photo: 'balloons',
-    title: ['Guarda', 'cada', 'recuerdo'],
-    text: 'Un álbum compartido para las fotos de todos y un diario que se convierte en la historia de vuestro viaje.'
+    title: m('Guarda|cada|recuerdo'),
+    text: m('Un álbum compartido para las fotos de todos y un diario que se convierte en la historia de vuestro viaje.')
   },
   {
     photo: 'machuPicchu',
-    title: ['Descubre', 'qué hacer', 'en cada lugar'],
-    text: 'El top 5 de lo más visitado de la ciudad donde estés, frases útiles y el clima, sin buscar en Google ni en redes.'
+    title: m('Descubre|qué hacer|en cada lugar'),
+    text: m('El top 5 de lo más visitado de la ciudad donde estés, frases útiles y el clima, sin buscar en Google ni en redes.')
   }
 ];
 const LAST = SLIDES.length - 1;
@@ -97,21 +98,21 @@ export default function WelcomeView() {
   }, [goTo, setCurrent, step, stopAutoplay]);
 
   return (
-    <section className="welcome" aria-roledescription="carrusel" aria-label="Bienvenida a FoxTrips">
-      <h1 className="visually-hidden">FoxTrips: viajes en grupo</h1>
+    <section className="welcome" aria-roledescription={t('carrusel')} aria-label={t('Bienvenida a FoxTrips')}>
+      <h1 className="visually-hidden">{t('FoxTrips: viajes en grupo')}</h1>
       <div className="welcome__track" id="welcomeTrack" ref={trackRef}>
         {SLIDES.map((slide, position) => {
           const photo = photoSources(slide.photo);
           return (
-            <article key={slide.photo} className="welcome__slide" id={`welcome-slide-${position}`} aria-roledescription="diapositiva" aria-label={`${position + 1} de ${SLIDES.length}`}>
+            <article key={slide.photo} className="welcome__slide" id={`welcome-slide-${position}`} aria-roledescription={t('diapositiva')} aria-label={t('{n} de {total}', { n: position + 1, total: SLIDES.length })}>
               <picture className="welcome__media">
                 <source media="(min-width: 900px)" srcSet={photo.large} />
                 <img src={photo.small} alt="" width="960" height="1280" fetchpriority={position === 0 ? 'high' : undefined} loading={position === 0 ? undefined : 'lazy'} decoding="async" />
               </picture>
               <div className="welcome__content">
-                <h2 className="welcome__title">{slide.title.map((line) => <span key={line}>{line}</span>)}</h2>
-                <p className="welcome__text">{slide.text}</p>
-                <p className="welcome__credit">Foto: {photo.credit}</p>
+                <h2 className="welcome__title">{t(slide.title).split('|').map((line) => <span key={line}>{line}</span>)}</h2>
+                <p className="welcome__text">{t(slide.text)}</p>
+                <p className="welcome__credit">{t('Foto: {credit}', { credit: photo.credit })}</p>
               </div>
             </article>
           );
@@ -122,24 +123,24 @@ export default function WelcomeView() {
         <span>FoxTrips</span>
       </header>
       <footer className="welcome__controls">
-        <div className="welcome__dots" role="group" aria-label="Elegir diapositiva">
+        <div className="welcome__dots" role="group" aria-label={t('Elegir diapositiva')}>
           {SLIDES.map((slide, position) => (
             <button
               key={slide.photo}
               className={`welcome__dot ${position === index ? 'welcome__dot--active' : ''}`}
               type="button"
-              aria-label={`Ir a la diapositiva ${position + 1}`}
+              aria-label={t('Ir a la diapositiva {n}', { n: position + 1 })}
               aria-current={position === index ? 'true' : 'false'}
               onClick={() => { stopAutoplay(); goTo(position); }}
             />
           ))}
         </div>
         <div className="welcome__bar">
-          <button className="welcome__skip" type="button" onClick={() => { stopAutoplay(); finish(); }}>Saltar</button>
+          <button className="welcome__skip" type="button" onClick={() => { stopAutoplay(); finish(); }}>{t('Saltar')}</button>
           <div className="welcome__arrows">
-            <button className="welcome__arrow welcome__arrow--prev" type="button" aria-label="Anterior" hidden={index === 0} onClick={() => step(-1)}><Icon name="back" size={22} /></button>
-            <button className="welcome__start" type="button" hidden={index !== LAST} onClick={() => { stopAutoplay(); finish(); }}>Empezar</button>
-            <button className="welcome__arrow welcome__arrow--next" type="button" aria-label={index === LAST ? 'Empezar: ir a crear cuenta o entrar' : 'Siguiente'} onClick={() => step(1)}><Icon name="next" size={22} /></button>
+            <button className="welcome__arrow welcome__arrow--prev" type="button" aria-label={t('Anterior')} hidden={index === 0} onClick={() => step(-1)}><Icon name="back" size={22} /></button>
+            <button className="welcome__start" type="button" hidden={index !== LAST} onClick={() => { stopAutoplay(); finish(); }}>{t('Empezar')}</button>
+            <button className="welcome__arrow welcome__arrow--next" type="button" aria-label={index === LAST ? t('Empezar: ir a crear cuenta o entrar') : t('Siguiente')} onClick={() => step(1)}><Icon name="next" size={22} /></button>
           </div>
         </div>
       </footer>

@@ -5,6 +5,8 @@
  * - Lugares: Photon (OpenStreetMap), pensado para buscar mientras se escribe y con prioridad cerca del destino.
  * Nominatim no se usa aqui porque sus normas prohiben el autocompletado.
  */
+import { getLanguage, m, t } from './i18n/index.js';
+import { countryName } from './locale.js';
 
 const CITY_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const PLACE_URL = 'https://photon.komoot.io/api/';
@@ -12,14 +14,15 @@ const MAX_RESULTS = 7;
 const SAME_PLACE_KM = 30;
 const NEAR_BOX_DEGREES = 0.55;
 const ADMIN_PREFIX = /^(departamento|región|region|estado|provincia|comunidad|distrito|condado|prefectura) (de |del |of )?/i;
+/* Se traducen al pintarlos con t() */
 const PLACE_TYPES = {
-  museum: 'Museo', attraction: 'Atracción', viewpoint: 'Mirador', park: 'Parque', garden: 'Jardín', zoo: 'Zoológico',
-  aquarium: 'Acuario', theme_park: 'Parque temático', beach: 'Playa', restaurant: 'Restaurante', cafe: 'Cafetería',
-  bar: 'Bar', pub: 'Bar', hotel: 'Hotel', hostel: 'Hostal', guest_house: 'Alojamiento', place_of_worship: 'Templo',
-  church: 'Iglesia', cathedral: 'Catedral', castle: 'Castillo', monument: 'Monumento', memorial: 'Monumento',
-  marketplace: 'Mercado', mall: 'Centro comercial', stadium: 'Estadio', theatre: 'Teatro', square: 'Plaza',
-  station: 'Estación', bus_station: 'Estación de buses', aerodrome: 'Aeropuerto', island: 'Isla', peak: 'Montaña',
-  city: 'Ciudad', town: 'Pueblo', village: 'Pueblo', suburb: 'Barrio', neighbourhood: 'Barrio'
+  museum: m('Museo'), attraction: m('Atracción'), viewpoint: m('Mirador'), park: m('Parque'), garden: m('Jardín'), zoo: m('Zoológico'),
+  aquarium: m('Acuario'), theme_park: m('Parque temático'), beach: m('Playa'), restaurant: m('Restaurante'), cafe: m('Cafetería'),
+  bar: m('Bar'), pub: m('Bar'), hotel: m('Hotel'), hostel: m('Hostal'), guest_house: m('Alojamiento'), place_of_worship: m('Templo'),
+  church: m('Iglesia'), cathedral: m('Catedral'), castle: m('Castillo'), monument: m('Monumento'), memorial: m('Monumento'),
+  marketplace: m('Mercado'), mall: m('Centro comercial'), stadium: m('Estadio'), theatre: m('Teatro'), square: m('Plaza'),
+  station: m('Estación'), bus_station: m('Estación de buses'), aerodrome: m('Aeropuerto'), island: m('Isla'), peak: m('Montaña'),
+  city: m('Ciudad'), town: m('Pueblo'), village: m('Pueblo'), suburb: m('Barrio'), neighbourhood: m('Barrio')
 };
 
 /* Ciudades frecuentes con sus codigos (IATA y abreviaturas habituales) */
@@ -137,7 +140,54 @@ export const CITY_CODES = [
   city('Ciudad del Cabo', 'Cabo Occidental', 'Sudáfrica', ['CPT'], -33.925, 18.424)
 ];
 
+/* Pais (en español, como en la lista) → codigo ISO: da el nombre del pais en cada idioma y la moneda del destino */
+const COUNTRY_CODES = {
+  Colombia: 'CO', 'México': 'MX', 'Perú': 'PE', Ecuador: 'EC', Chile: 'CL', Argentina: 'AR', Uruguay: 'UY', Brasil: 'BR',
+  'Panamá': 'PA', 'Costa Rica': 'CR', 'República Dominicana': 'DO', Cuba: 'CU', 'Estados Unidos': 'US', Venezuela: 'VE',
+  Bolivia: 'BO', Guatemala: 'GT', Aruba: 'AW', Curazao: 'CW', 'Canadá': 'CA', 'España': 'ES', Francia: 'FR', 'Reino Unido': 'GB',
+  Italia: 'IT', 'Países Bajos': 'NL', Portugal: 'PT', Alemania: 'DE', 'República Checa': 'CZ', Austria: 'AT', Grecia: 'GR',
+  'Turquía': 'TR', Irlanda: 'IE', Suiza: 'CH', 'Bélgica': 'BE', 'Japón': 'JP', 'Corea del Sur': 'KR', Tailandia: 'TH',
+  Singapur: 'SG', 'Emiratos Árabes Unidos': 'AE', China: 'CN', Indonesia: 'ID', Australia: 'AU', Egipto: 'EG', Marruecos: 'MA',
+  'Sudáfrica': 'ZA'
+};
+const COUNTRY_OVERRIDES = { 'Hong Kong': 'HK', 'San Juan': 'PR' };
+
+/* Ciudades cuyo nombre cambia en ingles o portugues: [ingles, portugues] */
+const CITY_NAMES = {
+  'Cartagena de Indias': ['Cartagena', 'Cartagena das Índias'], 'Ciudad de México': ['Mexico City', 'Cidade do México'],
+  'Río de Janeiro': ['Rio de Janeiro', 'Rio de Janeiro'], 'Ciudad de Panamá': ['Panama City', 'Cidade do Panamá'],
+  'La Habana': ['Havana', 'Havana'], 'Ciudad de Guatemala': ['Guatemala City', 'Cidade da Guatemala'],
+  'Nueva York': ['New York', 'Nova York'], 'Los Ángeles': ['Los Angeles', 'Los Angeles'],
+  'Washington D. C.': ['Washington, D.C.', 'Washington, D.C.'], Filadelfia: ['Philadelphia', 'Filadélfia'],
+  Sevilla: ['Seville', 'Sevilha'], 'París': ['Paris', 'Paris'], Londres: ['London', 'Londres'], Roma: ['Rome', 'Roma'],
+  'Milán': ['Milan', 'Milão'], Venecia: ['Venice', 'Veneza'], Florencia: ['Florence', 'Florença'],
+  'Ámsterdam': ['Amsterdam', 'Amsterdã'], Lisboa: ['Lisbon', 'Lisboa'], Oporto: ['Porto', 'Porto'], 'Berlín': ['Berlin', 'Berlim'],
+  'Múnich': ['Munich', 'Munique'], Praga: ['Prague', 'Praga'], Viena: ['Vienna', 'Viena'], Atenas: ['Athens', 'Atenas'],
+  Estambul: ['Istanbul', 'Istambul'], 'Dublín': ['Dublin', 'Dublin'], 'Zúrich': ['Zurich', 'Zurique'],
+  Bruselas: ['Brussels', 'Bruxelas'], Tokio: ['Tokyo', 'Tóquio'], Kioto: ['Kyoto', 'Quioto'], 'Seúl': ['Seoul', 'Seul'],
+  Singapur: ['Singapore', 'Singapura'], 'Dubái': ['Dubai', 'Dubai'], 'Pekín': ['Beijing', 'Pequim'],
+  'Shanghái': ['Shanghai', 'Xangai'], 'Sídney': ['Sydney', 'Sydney'], 'El Cairo': ['Cairo', 'Cairo'],
+  Marrakech: ['Marrakesh', 'Marrakech'], 'Ciudad del Cabo': ['Cape Town', 'Cidade do Cabo']
+};
+
 /* ---- Ayudantes ---- */
+
+/* Nombre de una ciudad de la lista (se pasa su nombre en español) en el idioma en uso */
+export function localizedCityName(spanishName) {
+  const names = CITY_NAMES[spanishName];
+  const language = getLanguage();
+  if (!names || language === 'es') return spanishName;
+  return language === 'pt' ? names[1] : names[0];
+}
+
+/* Todos los nombres de una ciudad de la lista (para encontrarla se escriba en el idioma que sea) */
+export function cityNames(entry) {
+  return [entry.name, ...(CITY_NAMES[entry.name] || [])];
+}
+
+function countryCodeOf(entry) {
+  return COUNTRY_OVERRIDES[entry.name] || COUNTRY_CODES[entry.country] || '';
+}
 
 export function normalize(text) {
   return String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
@@ -156,11 +206,17 @@ function cleanRegion(region) {
 }
 
 function fromLocal(entry, code = '') {
+  const isSpanish = getLanguage() === 'es';
+  const countryCode = countryCodeOf(entry);
+  const name = localizedCityName(entry.name);
+  const country = isSpanish ? entry.country : countryName(countryCode) || entry.country;
   return {
-    name: entry.name,
-    detail: [entry.region !== entry.name ? entry.region : '', entry.country].filter(Boolean).join(', '),
-    value: `${entry.name}, ${entry.country}`,
+    name,
+    // Las regiones de la lista estan en español: en otros idiomas basta con el pais
+    detail: [isSpanish && entry.region !== entry.name ? entry.region : '', country].filter(Boolean).join(', '),
+    value: `${name}, ${country}`,
     code,
+    countryCode,
     lat: entry.lat,
     lon: entry.lon
   };
@@ -183,14 +239,14 @@ function localCities(query) {
   const byCode = CITY_CODES.filter((entry) => entry.codes.includes(code)).map((entry) => fromLocal(entry, code));
   const byName = text.length < 2 ? [] : CITY_CODES
     .filter((entry) => !entry.codes.includes(code))
-    .filter((entry) => normalize(entry.name).split(/[\s(),.-]+/).some((word) => word.startsWith(text)) || normalize(entry.name).startsWith(text))
+    .filter((entry) => cityNames(entry).map(normalize).some((name) => name.split(/[\s(),.-]+/).some((word) => word.startsWith(text)) || name.startsWith(text)))
     .map((entry) => fromLocal(entry));
   return { byCode, byName };
 }
 
 async function remoteCities(query, signal) {
   if (normalize(query).length < 2) return [];
-  const params = new URLSearchParams({ name: query.trim(), count: '8', language: 'es', format: 'json' });
+  const params = new URLSearchParams({ name: query.trim(), count: '8', language: getLanguage(), format: 'json' });
   const response = await fetch(`${CITY_URL}?${params}`, { signal });
   if (!response.ok) return [];
   const data = await response.json();
@@ -199,10 +255,11 @@ async function remoteCities(query, signal) {
     const isAirport = result.feature_code === 'AIRP';
     return {
       name: result.name,
-      detail: [isAirport ? 'Aeropuerto' : '', region !== result.name ? region : '', result.country].filter(Boolean).join(', '),
+      detail: [isAirport ? t('Aeropuerto') : '', region !== result.name ? region : '', result.country].filter(Boolean).join(', '),
       value: `${result.name}, ${result.country || ''}`.replace(/, $/, ''),
       code: '',
       icon: isAirport ? 'plane' : 'pin',
+      countryCode: String(result.country_code || '').toUpperCase(),
       lat: result.latitude,
       lon: result.longitude
     };
@@ -234,7 +291,7 @@ export async function bestCity(query) {
 function toPlace(feature) {
   const props = feature.properties || {};
   const [lon, lat] = feature.geometry?.coordinates || [];
-  const type = PLACE_TYPES[props.osm_value] || '';
+  const type = PLACE_TYPES[props.osm_value] ? t(PLACE_TYPES[props.osm_value]) : '';
   const street = [props.street, props.housenumber].filter(Boolean).join(' ');
   const area = props.city || props.town || props.village || props.county || props.state || '';
   const name = props.name || street || area;
@@ -250,6 +307,8 @@ function toPlace(feature) {
 }
 
 async function photon(params, signal) {
+  // Photon solo traduce nombres a unos pocos idiomas; del resto devuelve el nombre local
+  if (getLanguage() === 'en') params.set('lang', 'en');
   const response = await fetch(`${PLACE_URL}?${params}`, { signal });
   if (!response.ok) return [];
   const data = await response.json();
@@ -286,6 +345,20 @@ export async function suggestPlaces(query, { near, signal } = {}) {
   return results.slice(0, MAX_RESULTS);
 }
 
+/* Pais (codigo de dos letras) de la ciudad conocida mas cercana, o '' si no hay ninguna cerca */
+export function nearestCountryCode(lat, lon, maxKm = 60) {
+  let best = null;
+  let bestKm = Infinity;
+  for (const entry of CITY_CODES) {
+    const km = distanceKm(lat, lon, entry.lat, entry.lon);
+    if (km < bestKm) {
+      best = entry;
+      bestKm = km;
+    }
+  }
+  return best && bestKm <= maxKm ? countryCodeOf(best) : '';
+}
+
 /* Ciudad conocida mas cercana (para poner nombre a un punto del mapa) */
 export function nearestCityName(lat, lon, maxKm = 40) {
   let best = null;
@@ -297,5 +370,5 @@ export function nearestCityName(lat, lon, maxKm = 40) {
       bestKm = km;
     }
   }
-  return best && bestKm <= maxKm ? best.name : '';
+  return best && bestKm <= maxKm ? localizedCityName(best.name) : '';
 }

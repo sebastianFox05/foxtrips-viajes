@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config.js';
 import { randomCode } from '../utils.js';
+import { t } from '../i18n/index.js';
 
 const CACHE_PREFIX = 'foxtrips:cache:';
 const REALTIME_TABLES = ['activities', 'photos', 'comments', 'proposals', 'votes', 'documents', 'checklist_items', 'diary_entries', 'trip_members'];
@@ -229,7 +230,7 @@ const supabaseStore = {
 
   async revokeInvites(tripId) {
     check(await supabase.from('invites').delete().eq('trip_id', tripId));
-    await addLog({ tripId, text: 'revocó los enlaces de invitación' });
+    await addLog({ tripId, text: t('revocó los enlaces de invitación') });
   },
 
   async joinTrip(code) {
@@ -238,7 +239,7 @@ const supabaseStore = {
 
   async setPublic(tripId, isPublic) {
     const token = isPublic ? randomCode(16) : null;
-    await this.updateTrip(tripId, { public_token: token }, { tripId, text: isPublic ? 'activó la página pública' : 'desactivó la página pública' });
+    await this.updateTrip(tripId, { public_token: token }, { tripId, text: isPublic ? t('activó la página pública') : t('desactivó la página pública') });
     return token;
   },
 

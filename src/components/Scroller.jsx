@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
+import { t } from '../lib/i18n/index.js';
 
 const STRIP_SELECTOR = '.chips, .weather';
 const STEP_RATIO = 0.8;
@@ -53,11 +54,11 @@ export default function Scroller({ isWeather = false, children }) {
 
   return (
     <div className={`scroller${isWeather ? ' scroller--weather' : ''}`} ref={wrapperRef}>
-      <button className="scroller__btn scroller__btn--prev" type="button" aria-label="Ver opciones anteriores" hidden={edges.isPrevHidden} onClick={() => scrollHandler(-1)}>
+      <button className="scroller__btn scroller__btn--prev" type="button" aria-label={t('Ver opciones anteriores')} hidden={edges.isPrevHidden} onClick={() => scrollHandler(-1)}>
         <Icon name="back" size={18} />
       </button>
       {children}
-      <button className="scroller__btn scroller__btn--next" type="button" aria-label="Ver más opciones" hidden={edges.isNextHidden} onClick={() => scrollHandler(1)}>
+      <button className="scroller__btn scroller__btn--next" type="button" aria-label={t('Ver más opciones')} hidden={edges.isNextHidden} onClick={() => scrollHandler(1)}>
         <Icon name="next" size={18} />
       </button>
     </div>

@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import { normalize } from '../lib/places.js';
 import { SUGGEST_ICONS, suggestionLabel, suggestionMinLength, suggestionProvider } from '../lib/suggestions.js';
+import { t } from '../lib/i18n/index.js';
 
 const DEBOUNCE_MS = 220;
 const BLUR_DELAY_MS = 120;
@@ -189,7 +190,7 @@ const SuggestInput = forwardRef(function SuggestInput({
       <button
         type="button"
         className={`suggest__clear${isOverlay ? ' suggest__clear--overlay' : ''}`}
-        aria-label="Borrar texto"
+        aria-label={t('Borrar texto')}
         hidden={!hasText}
         style={isOverlay && overlayTop ? { top: `${overlayTop.clear}px` } : undefined}
         onPointerDown={clearHandler}
@@ -202,8 +203,8 @@ const SuggestInput = forwardRef(function SuggestInput({
         hidden={!isListVisible}
         style={isOverlay && overlayTop ? { top: `${overlayTop.list}px` } : undefined}
       >
-        {status === 'loading' ? <li className="suggest__status" role="presentation">Buscando…</li> : null}
-        {status === 'empty' ? <li className="suggest__status" role="presentation">Sin resultados. Prueba con otro nombre o con el código (por ejemplo CTG).</li> : null}
+        {status === 'loading' ? <li className="suggest__status" role="presentation">{t('Buscando…')}</li> : null}
+        {status === 'empty' ? <li className="suggest__status" role="presentation">{t('Sin resultados. Prueba con otro nombre o con el código (por ejemplo CTG).')}</li> : null}
         {status === 'list' ? items.map((item, position) => {
           const isCodeMatch = item.code && normalize(item.code) === normalize(query).replace(/[\s.]/g, '');
           return (

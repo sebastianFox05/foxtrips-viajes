@@ -4,6 +4,7 @@
  * y sincroniza pestañas abiertas con BroadcastChannel.
  */
 import { uid, randomCode } from '../utils.js';
+import { t } from '../i18n/index.js';
 
 const DB_KEY = 'foxtrips:db';
 const USER_KEY = 'foxtrips:user';
@@ -113,11 +114,11 @@ const localStore = {
   },
 
   async signInWithGoogle() {
-    throw new Error('El acceso con Google necesita el modo nube (Supabase).');
+    throw new Error(t('El acceso con Google necesita el modo nube (Supabase).'));
   },
 
   async resetPassword() {
-    throw new Error('En modo local no hay contraseñas: basta con tu nombre.');
+    throw new Error(t('En modo local no hay contraseñas: basta con tu nombre.'));
   },
 
   async signOut() {
@@ -157,7 +158,7 @@ const localStore = {
     const trip = stamp({ ...data, created_by: currentUser.id, public_token: null });
     db.trips.push(trip);
     db.trip_members.push({ trip_id: trip.id, user_id: currentUser.id, role: 'owner', created_at: trip.created_at });
-    addLog(db, { tripId: trip.id, text: `creó el viaje "${trip.name}"` });
+    addLog(db, { tripId: trip.id, text: t('creó el viaje "{name}"', { name: trip.name }) });
     writeDb(db);
     return { ...trip, role: 'owner' };
   },
@@ -256,7 +257,7 @@ const localStore = {
   async revokeInvites(tripId) {
     const db = readDb();
     db.invites = db.invites.filter((item) => item.trip_id !== tripId);
-    addLog(db, { tripId, text: 'revocó los enlaces de invitación' });
+    addLog(db, { tripId, text: t('revocó los enlaces de invitación') });
     writeDb(db);
   },
 
@@ -264,11 +265,11 @@ const localStore = {
     const db = readDb();
     const isExpired = (item) => item.expires_at && new Date(item.expires_at) < new Date();
     const invite = db.invites.find((item) => item.code === code && !isExpired(item));
-    if (!invite) throw new Error('La invitación no existe o ha caducado.');
+    if (!invite) throw new Error(t('La invitación no existe o ha caducado.'));
     const member = db.trip_members.find((item) => item.trip_id === invite.trip_id && item.user_id === currentUser.id);
     if (!member) {
       db.trip_members.push({ trip_id: invite.trip_id, user_id: currentUser.id, role: invite.role, created_at: new Date().toISOString() });
-      addLog(db, { tripId: invite.trip_id, text: 'se unió al viaje' });
+      addLog(db, { tripId: invite.trip_id, text: t('se unió al viaje') });
       writeDb(db);
     }
     return invite.trip_id;
@@ -283,14 +284,14 @@ const localStore = {
       db.profiles.push(profile);
     }
     db.trip_members.push({ trip_id: tripId, user_id: profile.id, role, created_at: new Date().toISOString() });
-    db.activity_log.push(stamp({ trip_id: tripId, actor_id: profile.id, actor_name: name, text: 'se unió al viaje' }));
+    db.activity_log.push(stamp({ trip_id: tripId, actor_id: profile.id, actor_name: name, text: t('se unió al viaje') }));
     writeDb(db);
     return { id: profile.id, name };
   },
 
   async setPublic(tripId, isPublic) {
     const token = isPublic ? randomCode(16) : null;
-    await this.updateTrip(tripId, { public_token: token }, { tripId, text: isPublic ? 'activó la página pública' : 'desactivó la página pública' });
+    await this.updateTrip(tripId, { public_token: token }, { tripId, text: isPublic ? t('activó la página pública') : t('desactivó la página pública') });
     return token;
   },
 

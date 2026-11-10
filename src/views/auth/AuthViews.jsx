@@ -12,20 +12,22 @@ import { Avatar } from '../../components/Avatar.jsx';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useSession } from '../../session/SessionContext.jsx';
 import AuthVisual from './AuthVisual.jsx';
+import RegionSettings, { LanguagePicker } from './RegionSettings.jsx';
 import { takePendingInvite } from './invite.js';
+import { m, t } from '../../lib/i18n/index.js';
 
 const HAS_ACCOUNT_KEY = 'foxtrips:has-account';
 const AUTH_ERRORS = [
-  [/invalid login credentials/i, 'Correo o contraseña incorrectos.'],
-  [/already registered|already been registered|user already exists/i, 'Ya existe una cuenta con ese correo. Pulsa «Inicia sesión».'],
-  [/password should be at least|weak password/i, 'La contraseña es demasiado débil: usa al menos 6 caracteres.'],
-  [/email not confirmed/i, 'Confirma tu correo antes de entrar (revisa tu bandeja de entrada).'],
-  [/rate limit|too many requests|security purposes/i, 'Demasiados intentos seguidos. Espera un minuto y vuelve a probar.'],
-  [/same password|different from the old/i, 'La nueva contraseña debe ser distinta de la anterior.'],
+  [/invalid login credentials/i, m('Correo o contraseña incorrectos.')],
+  [/already registered|already been registered|user already exists/i, m('Ya existe una cuenta con ese correo. Pulsa «Inicia sesión».')],
+  [/password should be at least|weak password/i, m('La contraseña es demasiado débil: usa al menos 6 caracteres.')],
+  [/email not confirmed/i, m('Confirma tu correo antes de entrar (revisa tu bandeja de entrada).')],
+  [/rate limit|too many requests|security purposes/i, m('Demasiados intentos seguidos. Espera un minuto y vuelve a probar.')],
+  [/same password|different from the old/i, m('La nueva contraseña debe ser distinta de la anterior.')],
   // La base de datos rechaza correos sin dominio completo (regla validate_user_email)
-  [/invalid_email_domain|database error saving new user/i, 'Escribe un correo completo, por ejemplo nombre@gmail.com.'],
-  [/invalid email|unable to validate email/i, 'Ese correo no es válido.'],
-  [/failed to fetch|network/i, 'Sin conexión. Revisa tu internet e inténtalo de nuevo.']
+  [/invalid_email_domain|database error saving new user/i, m('Escribe un correo completo, por ejemplo nombre@gmail.com.')],
+  [/invalid email|unable to validate email/i, m('Ese correo no es válido.')],
+  [/failed to fetch|network/i, m('Sin conexión. Revisa tu internet e inténtalo de nuevo.')]
 ];
 
 // Si ya entraste alguna vez en este dispositivo se muestra primero "Inicia sesión"
@@ -34,7 +36,7 @@ let rememberedSignUp = localStorage.getItem(HAS_ACCOUNT_KEY) !== '1';
 function authErrorMessage(error) {
   const text = error?.message || String(error || '');
   const match = AUTH_ERRORS.find(([pattern]) => pattern.test(text));
-  return match ? match[1] : text || 'No se pudo completar. Inténtalo de nuevo.';
+  return match ? t(match[1]) : text || t('No se pudo completar. Inténtalo de nuevo.');
 }
 
 function GoogleIcon() {
@@ -67,7 +69,7 @@ function AuthError({ message }) {
  * (gmail.com, empresa.co, uni.edu.co). El navegador por si solo acepta "nombre@gmail".
  */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[a-z]{2,}$/i;
-const EMAIL_MESSAGE = 'Escribe un correo completo, por ejemplo nombre@gmail.com.';
+const EMAIL_MESSAGE = m('Escribe un correo completo, por ejemplo nombre@gmail.com.');
 
 export function isValidEmail(value) {
   return EMAIL_PATTERN.test(String(value || '').trim());
@@ -78,9 +80,9 @@ function firstInvalid(form) {
   const invalid = [...form.elements].find((element) => element.willValidate
     && (!element.checkValidity() || (element.type === 'email' && !isValidEmail(element.value))));
   if (!invalid) return null;
-  let message = 'Completa todos los campos.';
-  if (invalid.type === 'email') message = invalid.value.trim() ? EMAIL_MESSAGE : 'Escribe tu correo electrónico.';
-  else if (invalid.name === 'password' || invalid.name === 'confirm') message = 'La contraseña necesita al menos 6 caracteres.';
+  let message = t('Completa todos los campos.');
+  if (invalid.type === 'email') message = invalid.value.trim() ? t(EMAIL_MESSAGE) : t('Escribe tu correo electrónico.');
+  else if (invalid.name === 'password' || invalid.name === 'confirm') message = t('La contraseña necesita al menos 6 caracteres.');
   return { element: invalid, message };
 }
 
@@ -110,18 +112,18 @@ export function LoginView() {
     const emailInput = document.getElementById('loginEmail');
     const email = emailInput?.value.trim();
     if (!email) {
-      setError('Escribe tu correo y vuelve a pulsar «¿Olvidaste tu contraseña?».');
+      setError(t('Escribe tu correo y vuelve a pulsar «¿Olvidaste tu contraseña?».'));
       emailInput?.focus();
       return;
     }
     if (!isValidEmail(email)) {
-      setError(EMAIL_MESSAGE);
+      setError(t(EMAIL_MESSAGE));
       emailInput?.focus();
       return;
     }
     try {
       await runForgot(() => store.resetPassword(email));
-      toast('Te enviamos un correo para cambiar la contraseña.');
+      toast(t('Te enviamos un correo para cambiar la contraseña.'));
     } catch (forgotError) {
       toastError(forgotError);
     }
@@ -147,7 +149,7 @@ export function LoginView() {
       return;
     }
     if (!isLocal && isSignUp && data.password !== data.confirm) {
-      setError('Las contraseñas no coinciden.');
+      setError(t('Las contraseñas no coinciden.'));
       form.elements.confirm.focus();
       return;
     }
@@ -157,7 +159,7 @@ export function LoginView() {
         else if (isSignUp) {
           const result = await store.signUp(data);
           if (result?.isPendingConfirmation) {
-            toast('Te enviamos un correo para confirmar la cuenta.');
+            toast(t('Te enviamos un correo para confirmar la cuenta.'));
             return;
           }
         } else await store.signIn(data);
@@ -172,13 +174,13 @@ export function LoginView() {
     });
   }
 
-  let title = isSignUp ? 'Crea tu cuenta' : 'Inicia sesión';
-  let lead = isSignUp ? 'Empieza a planear tu próximo viaje en grupo.' : 'Qué bien verte de nuevo.';
+  let title = isSignUp ? t('Crea tu cuenta') : t('Inicia sesión');
+  let lead = isSignUp ? t('Empieza a planear tu próximo viaje en grupo.') : t('Qué bien verte de nuevo.');
   if (isLocal) {
-    title = 'Empieza a viajar';
-    lead = 'Dinos tu nombre para que el grupo sepa quién añade cada plan.';
+    title = t('Empieza a viajar');
+    lead = t('Dinos tu nombre para que el grupo sepa quién añade cada plan.');
   }
-  const primaryText = isLocal ? 'Continuar' : isSignUp ? 'Continuar con correo' : 'Entrar con correo';
+  const primaryText = isLocal ? t('Continuar') : isSignUp ? t('Continuar con correo') : t('Entrar con correo');
 
   return (
     <div className="auth-screen">
@@ -188,31 +190,32 @@ export function LoginView() {
           <h1 className="auth-panel__title" id="authTitle">{title}</h1>
           <p className="auth-panel__lead">{lead}</p>
           <form className="auth-panel__form" noValidate onSubmit={submitHandler} ref={formRef} key={isSignUp ? 'signup' : 'signin'}>
-            {isLocal ? <AuthField id="loginName" name="name" label="Tu nombre" iconName="user" autoComplete="name" maxLength={40} /> : (
+            {isLocal ? <AuthField id="loginName" name="name" label={t('Tu nombre')} iconName="user" autoComplete="name" maxLength={40} /> : (
               <>
-                {isSignUp ? <AuthField id="loginName" name="name" label="Tu nombre" iconName="user" autoComplete="name" maxLength={40} /> : null}
-                <AuthField id="loginEmail" name="email" type="email" label="Correo electrónico" iconName="mail" autoComplete="email" />
-                <AuthField id="loginPassword" name="password" type="password" label="Contraseña" iconName="lock" autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={6} />
+                {isSignUp ? <AuthField id="loginName" name="name" label={t('Tu nombre')} iconName="user" autoComplete="name" maxLength={40} /> : null}
+                <AuthField id="loginEmail" name="email" type="email" label={t('Correo electrónico')} iconName="mail" autoComplete="email" />
+                <AuthField id="loginPassword" name="password" type="password" label={t('Contraseña')} iconName="lock" autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={6} />
                 {isSignUp
-                  ? <AuthField id="loginConfirm" name="confirm" type="password" label="Confirmar contraseña" iconName="lock" autoComplete="new-password" minLength={6} />
-                  : <button className="auth-panel__link auth-panel__link--end" type="button" onClick={forgotHandler} disabled={isForgotBusy}>{isForgotBusy ? 'Guardando…' : '¿Olvidaste tu contraseña?'}</button>}
+                  ? <AuthField id="loginConfirm" name="confirm" type="password" label={t('Confirmar contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
+                  : <button className="auth-panel__link auth-panel__link--end" type="button" onClick={forgotHandler} disabled={isForgotBusy}>{isForgotBusy ? t('Guardando…') : t('¿Olvidaste tu contraseña?')}</button>}
               </>
             )}
             <AuthError message={error} />
-            <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? 'Guardando…' : primaryText}</button>
+            <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : primaryText}</button>
           </form>
           {isLocal ? null : (
             <>
-              <div className="auth-panel__divider"><span>o</span></div>
-              <button className="auth-btn auth-btn--outline" type="button" onClick={googleHandler} disabled={isGoogleBusy}>{isGoogleBusy ? 'Guardando…' : <><GoogleIcon /> Continuar con Google</>}</button>
+              <div className="auth-panel__divider"><span>{t('o')}</span></div>
+              <button className="auth-btn auth-btn--outline" type="button" onClick={googleHandler} disabled={isGoogleBusy}>{isGoogleBusy ? t('Guardando…') : <><GoogleIcon /> {t('Continuar con Google')}</>}</button>
               <p className="auth-panel__switch">
-                {isSignUp ? '¿Ya tienes cuenta?' : '¿Aún no tienes cuenta?'}{' '}
-                <button className="auth-panel__link auth-panel__link--accent" type="button" onClick={() => { setError(''); setIsSignUp(!isSignUp); }}>{isSignUp ? 'Inicia sesión' : 'Crea una'}</button>
+                {isSignUp ? t('¿Ya tienes cuenta?') : t('¿Aún no tienes cuenta?')}{' '}
+                <button className="auth-panel__link auth-panel__link--accent" type="button" onClick={() => { setError(''); setIsSignUp(!isSignUp); }}>{isSignUp ? t('Inicia sesión') : t('Crea una')}</button>
               </p>
             </>
           )}
-          {isLocal ? <p className="auth-panel__note">Modo local: los datos se guardan solo en este navegador. Para compartir viajes con tu grupo, configura Supabase (README.md).</p> : null}
-          <a className="auth-panel__back" href="#/bienvenida"><Icon name="back" size={14} /> Ver la bienvenida</a>
+          {isLocal ? <p className="auth-panel__note">{t('Modo local: los datos se guardan solo en este navegador. Para compartir viajes con tu grupo, configura Supabase (README.md).')}</p> : null}
+          <a className="auth-panel__back" href="#/bienvenida"><Icon name="back" size={14} /> {t('Ver la bienvenida')}</a>
+          <LanguagePicker className="auth-panel__language" />
         </section>
       </div>
     </div>
@@ -233,12 +236,12 @@ export function RecoveryView() {
     const data = formToObject(form);
     setError('');
     if ((data.password || '').length < 6) {
-      setError('La contraseña necesita al menos 6 caracteres.');
+      setError(t('La contraseña necesita al menos 6 caracteres.'));
       form.elements.password.focus();
       return;
     }
     if (data.password !== data.confirm) {
-      setError('Las contraseñas no coinciden.');
+      setError(t('Las contraseñas no coinciden.'));
       form.elements.confirm.focus();
       return;
     }
@@ -249,7 +252,7 @@ export function RecoveryView() {
         setError(authErrorMessage(updateError));
         return;
       }
-      toast('Contraseña actualizada. ¡Ya estás dentro!');
+      toast(t('Contraseña actualizada. ¡Ya estás dentro!'));
       refreshUser();
       navigate('/');
     });
@@ -260,13 +263,13 @@ export function RecoveryView() {
       <div className="auth-screen__grid">
         <AuthVisual />
         <section className="auth-panel" aria-labelledby="authTitle">
-          <h1 className="auth-panel__title" id="authTitle">Nueva contraseña</h1>
-          <p className="auth-panel__lead">Escribe la contraseña que usarás a partir de ahora.</p>
+          <h1 className="auth-panel__title" id="authTitle">{t('Nueva contraseña')}</h1>
+          <p className="auth-panel__lead">{t('Escribe la contraseña que usarás a partir de ahora.')}</p>
           <form className="auth-panel__form" noValidate onSubmit={submitHandler}>
-            <AuthField id="newPassword" name="password" type="password" label="Nueva contraseña" iconName="lock" autoComplete="new-password" minLength={6} />
-            <AuthField id="newConfirm" name="confirm" type="password" label="Repite la contraseña" iconName="lock" autoComplete="new-password" minLength={6} />
+            <AuthField id="newPassword" name="password" type="password" label={t('Nueva contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
+            <AuthField id="newConfirm" name="confirm" type="password" label={t('Repite la contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
             <AuthError message={error} />
-            <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? 'Guardando…' : 'Guardar contraseña'}</button>
+            <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : t('Guardar contraseña')}</button>
           </form>
         </section>
       </div>
@@ -281,14 +284,14 @@ export function ProfileView() {
   const [isNameBusy, runName] = useBusy();
   const [isRemoveBusy, runRemove] = useBusy();
   const [isUploading, setIsUploading] = useState(false);
-  const storageText = { local: 'Este navegador (modo local)', supabase: 'Supabase Storage', cloudinary: 'Cloudinary' }[photoProvider];
+  const storageText = { local: t('Este navegador (modo local)'), supabase: 'Supabase Storage', cloudinary: 'Cloudinary' }[photoProvider];
 
   async function saveNameHandler(event) {
     event.preventDefault();
     const { name } = formToObject(event.currentTarget);
     try {
       await runName(() => store.updateName(name));
-      toast('Nombre actualizado');
+      toast(t('Nombre actualizado'));
       refreshUser();
     } catch (error) {
       toastError(error);
@@ -306,10 +309,10 @@ export function ProfileView() {
       const { url, publicId } = await uploadAvatar(store.user.id, file);
       await store.updateAvatar(url);
       cleanupAvatars(publicId).catch(() => null);
-      toast('Foto de perfil actualizada');
+      toast(t('Foto de perfil actualizada'));
     } catch (error) {
       toastError(new Error(/avatar_url/.test(error.message)
-        ? 'La base de datos aún no tiene el campo de foto de perfil: hay que ejecutar el SQL actualizado en Supabase.'
+        ? t('La base de datos aún no tiene el campo de foto de perfil: hay que ejecutar el SQL actualizado en Supabase.')
         : error.message));
     }
     setIsUploading(false);
@@ -317,12 +320,12 @@ export function ProfileView() {
   }
 
   async function removeAvatarHandler() {
-    const isConfirmed = await confirm('Se quitará tu foto de perfil y volverán a verse tus iniciales.');
+    const isConfirmed = await confirm(t('Se quitará tu foto de perfil y volverán a verse tus iniciales.'), { confirmText: t('Quitar') });
     if (!isConfirmed) return;
     try {
       await runRemove(() => store.updateAvatar(null));
       cleanupAvatars().catch(() => null);
-      toast('Foto de perfil quitada');
+      toast(t('Foto de perfil quitada'));
       refreshUser();
     } catch (error) {
       toastError(error);
@@ -348,41 +351,42 @@ export function ProfileView() {
       </div>
       <div className="grid grid--2">
         <section className="card" aria-labelledby="avatarTitle">
-          <h2 className="card__title" id="avatarTitle">Tu foto de perfil</h2>
-          <p className="card__text">Así el grupo te reconoce en los viajes, los comentarios y el historial.</p>
+          <h2 className="card__title" id="avatarTitle">{t('Tu foto de perfil')}</h2>
+          <p className="card__text">{t('Así el grupo te reconoce en los viajes, los comentarios y el historial.')}</p>
           <div className="profile-photo">
             <Avatar name={user.name} userId={user.id} extraClass="avatar--xl" />
             <div className="profile-photo__actions">
               <input className="visually-hidden" id="avatarFile" type="file" accept="image/*" onChange={avatarFileHandler} />
               <label className="btn btn--primary" htmlFor="avatarFile" data-avatar-label="">
-                <Icon name="upload" size={18} /><span> {isUploading ? 'Subiendo…' : user.avatar_url ? 'Cambiar foto' : 'Subir foto'}</span>
+                <Icon name="upload" size={18} /><span> {isUploading ? t('Subiendo…') : user.avatar_url ? t('Cambiar foto') : t('Subir foto')}</span>
               </label>
               {user.avatar_url ? (
                 <button className="btn" type="button" onClick={removeAvatarHandler} disabled={isRemoveBusy}>
-                  {isRemoveBusy ? 'Guardando…' : <><Icon name="trash" size={18} /> Quitar foto</>}
+                  {isRemoveBusy ? t('Guardando…') : <><Icon name="trash" size={18} /> {t('Quitar foto')}</>}
                 </button>
               ) : null}
             </div>
           </div>
-          <p className="form__help">Se recorta en cuadrado y se reduce antes de subirla.</p>
+          <p className="form__help">{t('Se recorta en cuadrado y se reduce antes de subirla.')}</p>
         </section>
         <section className="card">
-          <h2 className="card__title">Tu nombre</h2>
+          <h2 className="card__title">{t('Tu nombre')}</h2>
           <form className="form" onSubmit={saveNameHandler}>
             <div className="form__field">
-              <label className="form__label" htmlFor="profileName">Nombre visible para el grupo</label>
+              <label className="form__label" htmlFor="profileName">{t('Nombre visible para el grupo')}</label>
               <input className="form__input" id="profileName" name="name" required maxLength={40} defaultValue={user.name} key={user.name} />
             </div>
-            <div className="form__actions"><button className="btn btn--primary" type="submit" disabled={isNameBusy}>{isNameBusy ? 'Guardando…' : 'Guardar'}</button></div>
+            <div className="form__actions"><button className="btn btn--primary" type="submit" disabled={isNameBusy}>{isNameBusy ? t('Guardando…') : t('Guardar')}</button></div>
           </form>
         </section>
+        <RegionSettings />
         <section className="card">
-          <h2 className="card__title">Almacenamiento</h2>
+          <h2 className="card__title">{t('Almacenamiento')}</h2>
           <ul className="rows">
-            <li className="row"><span className="row__icon"><Icon name="users" /></span><div className="row__body"><p className="row__title">Datos</p><p className="row__meta">{store.mode === 'local' ? 'Este navegador (modo local)' : 'Supabase'}</p></div></li>
-            <li className="row"><span className="row__icon"><Icon name="image" /></span><div className="row__body"><p className="row__title">Fotos</p><p className="row__meta">{storageText}</p></div></li>
+            <li className="row"><span className="row__icon"><Icon name="users" /></span><div className="row__body"><p className="row__title">{t('Datos')}</p><p className="row__meta">{store.mode === 'local' ? t('Este navegador (modo local)') : 'Supabase'}</p></div></li>
+            <li className="row"><span className="row__icon"><Icon name="image" /></span><div className="row__body"><p className="row__title">{t('Fotos')}</p><p className="row__meta">{storageText}</p></div></li>
           </ul>
-          <button className="btn btn--block btn--top" type="button" onClick={signOutHandler}><Icon name="logout" /> Cerrar sesión</button>
+          <button className="btn btn--block btn--top" type="button" onClick={signOutHandler}><Icon name="logout" /> {t('Cerrar sesión')}</button>
         </section>
       </div>
     </>
@@ -398,7 +402,7 @@ export function JoinView({ code }) {
     let isCurrent = true;
     store.joinTrip(code).then((tripId) => {
       if (!isCurrent) return;
-      toast('¡Te has unido al viaje!');
+      toast(t('¡Te has unido al viaje!'));
       navigate(`/viaje/${tripId}`, { replace: true });
     }).catch((joinError) => {
       if (isCurrent) setError(joinError);
@@ -408,12 +412,12 @@ export function JoinView({ code }) {
     };
   }, [code, navigate, toast]);
 
-  if (!error) return <p className="loading">Entrando al viaje…</p>;
+  if (!error) return <p className="loading">{t('Entrando al viaje…')}</p>;
   return (
     <div className="empty">
-      <h1 className="empty__title">No pudimos unirte al viaje</h1>
+      <h1 className="empty__title">{t('No pudimos unirte al viaje')}</h1>
       <p className="empty__text">{error.message}</p>
-      <a className="btn btn--primary" href="#/">Ir a mis viajes</a>
+      <a className="btn btn--primary" href="#/">{t('Ir a mis viajes')}</a>
     </div>
   );
 }

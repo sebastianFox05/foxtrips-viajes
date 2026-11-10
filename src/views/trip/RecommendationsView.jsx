@@ -7,18 +7,20 @@ import { useEffect, useRef, useState } from 'react';
 import { store } from '../../lib/store/index.js';
 import { CATEGORIES, cityRecommendations, distanceKm, findCity, nearbyRecommendations } from '../../lib/recommendations.js';
 import { currentPosition, reverseGeocode } from '../../lib/services.js';
-import { bestCity } from '../../lib/places.js';
+import { bestCity, localizedCityName } from '../../lib/places.js';
 import { safeUrl } from '../../lib/utils.js';
+import { formatDistance } from '../../lib/locale.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import SuggestInput from '../../components/SuggestInput.jsx';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useTrip } from './TripContext.jsx';
+import { m, t, tn } from '../../lib/i18n/index.js';
 
 const TOP = 5;
 const SOURCES = [
-  { key: 'viaje', label: 'Destino del viaje', icon: 'compass' },
-  { key: 'aqui', label: 'Donde estoy', icon: 'pin' }
+  { key: 'viaje', label: m('Destino del viaje'), icon: 'compass' },
+  { key: 'aqui', label: m('Donde estoy'), icon: 'pin' }
 ];
 
 // Lo encontrado se recuerda al volver (mismo viaje o la pagina general)
@@ -28,7 +30,7 @@ async function recommendationsFor({ text, lat, lon }) {
   // Con coordenadas manda la distancia (asi "Cartagena, España" no se confunde con Cartagena de Indias)
   const city = lat != null && lon != null ? findCity({ lat, lon }) : findCity({ text });
   if (city) return { city, items: await cityRecommendations(city), isCurated: true };
-  if (lat == null || lon == null) throw new Error('No encontramos esa zona. Prueba con el nombre de la ciudad y el país.');
+  if (lat == null || lon == null) throw new Error(t('No encontramos esa zona. Prueba con el nombre de la ciudad y el país.'));
   return { city: null, items: await nearbyRecommendations(lat, lon), isCurated: false };
 }
 
@@ -37,8 +39,7 @@ function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose
   const category = CATEGORIES[item.category] || CATEGORIES.lugar;
   let distance = '';
   if (place?.isHere && item.lat != null) {
-    const km = distanceKm(place.lat, place.lon, item.lat, item.lon);
-    distance = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+    distance = formatDistance(distanceKm(place.lat, place.lon, item.lat, item.lon));
   }
   const mapsUrl = item.lat != null ? `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lon}` : '';
   const wikiUrl = safeUrl(item.url || '');
@@ -48,9 +49,9 @@ function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose
       <article className="reco">
         <div className={`reco__media photo-card ${item.rank === 1 ? 'photo-card--tall' : ''}`}>
           {image ? <Picture url={image} alt={item.name} className="photo-card__media" width={960} height={640} isLazy={item.rank > 2} /> : null}
-          <span className="reco__rank" aria-label={`Puesto ${item.rank}`}>#{item.rank}</span>
+          <span className="reco__rank" aria-label={t('Puesto {n}', { n: item.rank })}>#{item.rank}</span>
           <div className="photo-card__overlay">
-            <p className="photo-card__kicker"><Icon name={category.icon} size={12} /> {category.label}{distance ? ` · a ${distance}` : ''}</p>
+            <p className="photo-card__kicker"><Icon name={category.icon} size={12} /> {t(category.label)}{distance ? ` · ${t('a {distance}', { distance })}` : ''}</p>
             <h3 className="photo-card__title">{item.name}</h3>
             {item.description ? <p className="photo-card__place">{item.description}</p> : null}
           </div>
@@ -60,13 +61,13 @@ function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose
           {item.extract ? <p className="reco__extract">{item.extract}</p> : null}
           <div className="reco__actions">
             {canAdd ? (isPlanned
-              ? <span className="badge badge--success"><Icon name="check" size={14} /> En tu plan</span>
-              : <button className="btn btn--primary btn--small" type="button" disabled={isAdding} onClick={() => runAdd(() => onAdd(item))}>{isAdding ? 'Guardando…' : <><Icon name="plus" size={16} /> Añadir al plan</>}</button>) : null}
-            {canPropose ? <button className="btn btn--small" type="button" onClick={() => onPropose(item)}><Icon name="vote" size={16} /> Proponer</button> : null}
-            {mapsUrl ? <a className="btn btn--ghost btn--small" href={mapsUrl} target="_blank" rel="noopener noreferrer"><Icon name="map" size={16} /> Cómo llegar</a> : null}
-            {wikiUrl ? <a className="btn btn--ghost btn--small" href={wikiUrl} target="_blank" rel="noopener noreferrer">Saber más</a> : null}
+              ? <span className="badge badge--success"><Icon name="check" size={14} /> {t('En tu plan')}</span>
+              : <button className="btn btn--primary btn--small" type="button" disabled={isAdding} onClick={() => runAdd(() => onAdd(item))}>{isAdding ? t('Guardando…') : <><Icon name="plus" size={16} /> {t('Añadir al plan')}</>}</button>) : null}
+            {canPropose ? <button className="btn btn--small" type="button" onClick={() => onPropose(item)}><Icon name="vote" size={16} /> {t('Proponer')}</button> : null}
+            {mapsUrl ? <a className="btn btn--ghost btn--small" href={mapsUrl} target="_blank" rel="noopener noreferrer"><Icon name="map" size={16} /> {t('Cómo llegar')}</a> : null}
+            {wikiUrl ? <a className="btn btn--ghost btn--small" href={wikiUrl} target="_blank" rel="noopener noreferrer">{t('Saber más')}</a> : null}
           </div>
-          {item.credit ? <p className="reco__credit">Foto e información: {item.credit}</p> : null}
+          {item.credit ? <p className="reco__credit">{t('Foto e información: {credit}', { credit: item.credit })}</p> : null}
         </div>
       </article>
     </li>
@@ -110,19 +111,19 @@ export default function RecommendationsView({ isStandalone = false }) {
     try {
       let resolved = searchedPlace;
       if (nextSource === 'viaje') {
-        if (!trip?.destination && trip?.lat == null) throw new Error('Añade un destino al viaje para ver sus recomendaciones.');
+        if (!trip?.destination && trip?.lat == null) throw new Error(t('Añade un destino al viaje para ver sus recomendaciones.'));
         resolved = { label: trip.destination || trip.name, text: trip.destination, lat: trip.lat, lon: trip.lon };
       } else if (nextSource === 'aqui') {
         const position = await currentPosition();
         const named = await reverseGeocode(position.lat, position.lon).catch(() => null);
-        resolved = { label: named?.label || 'Tu ubicación', text: named?.city || '', ...position, isHere: true };
+        resolved = { label: named?.label || t('Tu ubicación'), text: named?.city || '', ...position, isHere: true };
       }
       const data = await recommendationsFor(resolved);
       if (seq !== seqRef.current) return;
-      setPlace({ ...resolved, cityName: data.city?.name, isCurated: data.isCurated });
+      setPlace({ ...resolved, cityName: data.city ? localizedCityName(data.city.name) : undefined, isCurated: data.isCurated });
       setResults(data.items);
       memory.loadedKey = `${nextSource}:${resolved.label}`;
-      if (!data.items.length) setErrorMessage('No encontramos planes populares en esta zona. Prueba con la ciudad más cercana.');
+      if (!data.items.length) setErrorMessage(t('No encontramos planes populares en esta zona. Prueba con la ciudad más cercana.'));
     } catch (error) {
       if (seq !== seqRef.current) return;
       setResults([]);
@@ -185,7 +186,7 @@ export default function RecommendationsView({ isStandalone = false }) {
         image_credit: item.credit || null,
         created_by: store.user.id,
         created_by_name: store.user.name
-      }, { tripId, text: `añadió "${item.name}" desde Recomendaciones` });
+      }, { tripId, text: t('añadió "{title}" desde Recomendaciones', { title: item.name }) });
       if (item.image) {
         await store.insert('photos', {
           url: item.image, thumb_url: item.thumb, caption: item.name, credit: item.credit, source_url: item.url,
@@ -194,7 +195,7 @@ export default function RecommendationsView({ isStandalone = false }) {
         });
       }
       setPlannedTitles((current) => new Set([...current, item.name.toLowerCase()]));
-      toast(`"${item.name}" está en Ideas sueltas del itinerario`);
+      toast(t('"{title}" está en Ideas sueltas del itinerario', { title: item.name }));
     } catch (error) {
       toastError(error);
     }
@@ -210,8 +211,8 @@ export default function RecommendationsView({ isStandalone = false }) {
         status: 'open',
         author_id: store.user.id,
         author_name: store.user.name
-      }, { tripId, text: `propuso "${item.name}"` });
-      toast('Propuesta enviada al grupo para votar');
+      }, { tripId, text: t('propuso "{title}"', { title: item.name }) });
+      toast(t('Propuesta enviada al grupo para votar'));
     } catch (error) {
       toastError(error);
     }
@@ -219,27 +220,27 @@ export default function RecommendationsView({ isStandalone = false }) {
 
   let resultsContent = null;
   if (isLoading) {
-    resultsContent = <p className="loading" role="status">{source === 'aqui' ? 'Buscando dónde estás…' : 'Buscando los planes más populares…'}</p>;
+    resultsContent = <p className="loading" role="status">{source === 'aqui' ? t('Buscando dónde estás…') : t('Buscando los planes más populares…')}</p>;
   } else if (errorMessage) {
     resultsContent = (
       <div className="empty">
         <span className="empty__icon"><Icon name="compass" size={28} /></span>
         <p className="empty__text">{errorMessage}</p>
-        <button className="btn" type="button" onClick={() => (source === 'buscar' ? load('buscar', place) : load(source))}>Intentar de nuevo</button>
+        <button className="btn" type="button" onClick={() => (source === 'buscar' ? load('buscar', place) : load(source))}>{t('Intentar de nuevo')}</button>
       </div>
     );
   } else if (results.length && place) {
     const visible = isShowingAll ? results : results.slice(0, TOP);
     const where = place.cityName || place.label;
     const basis = place.isCurated
-      ? 'Ordenado según las atracciones más visitadas de la ciudad.'
-      : 'Zona sin top propio: lugares turísticos cercanos ordenados según su popularidad en Wikipedia.';
+      ? t('Ordenado según las atracciones más visitadas de la ciudad.')
+      : t('Zona sin top propio: lugares turísticos cercanos ordenados según su popularidad en Wikipedia.');
     resultsContent = (
       <>
         <div className="section__head">
           <div>
-            <h3>Top {visible.length} en {where}</h3>
-            <p className="section__hint">{basis}{place.isHere ? ' Distancias desde tu ubicación actual.' : ''}</p>
+            <h3>{t('Top {n} en {place}', { n: visible.length, place: where })}</h3>
+            <p className="section__hint">{basis}{place.isHere ? ` ${t('Distancias desde tu ubicación actual.')}` : ''}</p>
           </div>
         </div>
         <ol className="reco-list">
@@ -249,7 +250,7 @@ export default function RecommendationsView({ isStandalone = false }) {
         </ol>
         {results.length > TOP ? (
           <p className="section__hint section__hint--center">
-            <button className="btn" type="button" onClick={() => setIsShowingAll(!isShowingAll)}>{isShowingAll ? 'Ver solo el top 5' : `Ver ${results.length - TOP} ${results.length - TOP === 1 ? 'plan' : 'planes'} más`}</button>
+            <button className="btn" type="button" onClick={() => setIsShowingAll(!isShowingAll)}>{isShowingAll ? t('Ver solo el top 5') : tn(results.length - TOP, 'Ver {n} plan más', 'Ver {n} planes más')}</button>
           </p>
         ) : null}
       </>
@@ -258,9 +259,9 @@ export default function RecommendationsView({ isStandalone = false }) {
     resultsContent = (
       <div className="empty">
         <span className="empty__icon"><Icon name="pin" size={28} /></span>
-        <h3 className="empty__title">¿Dónde estás?</h3>
-        <p className="empty__text">Usa tu ubicación para ver el top 5 de la ciudad en la que te encuentras, o busca una ciudad arriba.</p>
-        <button className="btn btn--primary" type="button" onClick={() => sourceHandler('aqui')}><Icon name="pin" size={18} /> Usar mi ubicación</button>
+        <h3 className="empty__title">{t('¿Dónde estás?')}</h3>
+        <p className="empty__text">{t('Usa tu ubicación para ver el top 5 de la ciudad en la que te encuentras, o busca una ciudad arriba.')}</p>
+        <button className="btn btn--primary" type="button" onClick={() => sourceHandler('aqui')}><Icon name="pin" size={18} /> {t('Usar mi ubicación')}</button>
       </div>
     );
   }
@@ -269,21 +270,21 @@ export default function RecommendationsView({ isStandalone = false }) {
     <>
       <div className="section__head">
         <div>
-          {trip ? <h2>Recomendaciones</h2> : <h1 className="home-head__title">Planes recomendados</h1>}
-          <p className="section__hint">El top 5 de lo que más visita la gente, sin buscar en Google ni en redes.</p>
+          {trip ? <h2>{t('Recomendaciones')}</h2> : <h1 className="home-head__title">{t('Planes recomendados')}</h1>}
+          <p className="section__hint">{t('El top 5 de lo que más visita la gente, sin buscar en Google ni en redes.')}</p>
         </div>
       </div>
       <div className="reco-controls">
-        <div className="segmented" role="group" aria-label="Recomendaciones para">
+        <div className="segmented" role="group" aria-label={t('Recomendaciones para')}>
           {SOURCES.filter((option) => option.key !== 'viaje' || trip).map((option) => (
             <button key={option.key} className={`segmented__btn ${option.key === source ? 'segmented__btn--active' : ''}`} type="button" aria-pressed={option.key === source} onClick={() => sourceHandler(option.key)}>
-              <Icon name={option.icon} size={16} /> {option.label}
+              <Icon name={option.icon} size={16} /> {t(option.label)}
             </button>
           ))}
         </div>
         <form className="search search--form suggest-host" role="search" onSubmit={searchHandler}>
           <Icon name="search" />
-          <label className="visually-hidden" htmlFor="recoQuery">Buscar otra ciudad o zona</label>
+          <label className="visually-hidden" htmlFor="recoQuery">{t('Buscar otra ciudad o zona')}</label>
           <SuggestInput
             ref={queryRef}
             id="recoQuery"
@@ -291,12 +292,12 @@ export default function RecommendationsView({ isStandalone = false }) {
             className="search__input"
             kind="city"
             type="search"
-            placeholder="Ciudad o código: Roma, MDE, CTG…"
+            placeholder={t('Ciudad o código: Roma, MDE, CTG…')}
             withCoords
             // Al elegir una ciudad del menu se busca al momento
             onSelect={(item) => searchHandler(null, item)}
           />
-          <button className="btn btn--primary btn--small" type="submit" disabled={isSearchBusy}>{isSearchBusy ? 'Guardando…' : 'Buscar'}</button>
+          <button className="btn btn--primary btn--small" type="submit" disabled={isSearchBusy}>{isSearchBusy ? t('Buscando…') : t('Buscar')}</button>
         </form>
       </div>
       <section id="recoResults" aria-live="polite">{resultsContent}</section>

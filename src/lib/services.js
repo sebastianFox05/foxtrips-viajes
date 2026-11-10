@@ -1,4 +1,5 @@
-/* Servicios externos gratuitos y sin clave: geocodificacion, clima y divisas. */
+/* Servicios externos gratuitos y sin clave: geocodificacion, clima, zona horaria y divisas. */
+import { getLanguage, m, t } from './i18n/index.js';
 
 const GEOCODE_URL = 'https://nominatim.openstreetmap.org/search';
 const REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
@@ -10,12 +11,10 @@ const FORECAST_DAYS = 15;
 const TYPICAL_YEARS = 3;
 const WEATHER_TTL = 3 * 3600 * 1000;
 const WEATHER_CODES = [
-  [0, '☀️', 'Despejado'], [2, '🌤️', 'Poco nuboso'], [3, '☁️', 'Nublado'], [48, '🌫️', 'Niebla'],
-  [57, '🌦️', 'Llovizna'], [67, '🌧️', 'Lluvia'], [77, '🌨️', 'Nieve'], [82, '🌧️', 'Chubascos'],
-  [86, '🌨️', 'Chubascos de nieve'], [99, '⛈️', 'Tormenta']
+  [0, '☀️', m('Despejado')], [2, '🌤️', m('Poco nuboso')], [3, '☁️', m('Nublado')], [48, '🌫️', m('Niebla')],
+  [57, '🌦️', m('Llovizna')], [67, '🌧️', m('Lluvia')], [77, '🌨️', m('Nieve')], [82, '🌧️', m('Chubascos')],
+  [86, '🌨️', m('Chubascos de nieve')], [99, '⛈️', m('Tormenta')]
 ];
-
-export const CURRENCIES = ['COP', 'USD', 'EUR', 'MXN', 'ARS', 'CLP', 'PEN', 'BRL', 'UYU', 'GBP', 'CAD', 'CHF', 'JPY', 'CNY', 'AUD', 'DOP', 'CRC', 'GTQ', 'THB', 'TRY', 'MAD', 'IDR'];
 
 const NEAR_DEGREES = 0.6;
 
@@ -26,13 +25,13 @@ async function searchPlace(query, near) {
   const wait = Math.max(0, 1100 - (Date.now() - lastGeocode));
   if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
   lastGeocode = Date.now();
-  let url = `${GEOCODE_URL}?format=jsonv2&limit=1&accept-language=es&q=${encodeURIComponent(query)}`;
+  let url = `${GEOCODE_URL}?format=jsonv2&limit=1&accept-language=${getLanguage()}&q=${encodeURIComponent(query)}`;
   if (near) {
     const box = [near.lon - NEAR_DEGREES, near.lat + NEAR_DEGREES, near.lon + NEAR_DEGREES, near.lat - NEAR_DEGREES];
     url += `&viewbox=${box.join(',')}&bounded=1`;
   }
   const response = await fetch(url);
-  if (!response.ok) throw new Error('No se pudo buscar la ubicación.');
+  if (!response.ok) throw new Error(t('No se pudo buscar la ubicación.'));
   const [place] = await response.json();
   return place ? { lat: Number(place.lat), lon: Number(place.lon), label: place.display_name } : null;
 }
@@ -55,7 +54,7 @@ export async function reverseGeocode(lat, lon) {
   const wait = Math.max(0, 1100 - (Date.now() - lastGeocode));
   if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
   lastGeocode = Date.now();
-  const url = `${REVERSE_URL}?format=jsonv2&zoom=10&accept-language=es&lat=${lat}&lon=${lon}`;
+  const url = `${REVERSE_URL}?format=jsonv2&zoom=10&accept-language=${getLanguage()}&lat=${lat}&lon=${lon}`;
   const response = await fetch(url);
   if (!response.ok) return null;
   const data = await response.json();
@@ -64,18 +63,37 @@ export async function reverseGeocode(lat, lon) {
   return { city, country: address.country || '', label: [city, address.country].filter(Boolean).join(', ') };
 }
 
+/* Codigo de pais (dos letras, mayusculas) de unas coordenadas, o '' si no se sabe */
+export async function countryCodeAt(lat, lon) {
+  const wait = Math.max(0, 1100 - (Date.now() - lastGeocode));
+  if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastGeocode = Date.now();
+  const response = await fetch(`${REVERSE_URL}?format=jsonv2&zoom=3&lat=${lat}&lon=${lon}`);
+  if (!response.ok) return '';
+  const data = await response.json();
+  return String(data.address?.country_code || '').toUpperCase();
+}
+
+/* Zona horaria (nombre IANA, por ejemplo "Europe/Rome") de unas coordenadas */
+export async function timeZoneAt(lat, lon) {
+  const response = await fetch(`${WEATHER_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`);
+  if (!response.ok) return '';
+  const data = await response.json();
+  return data.timezone || '';
+}
+
 /* Posicion actual del dispositivo (pide permiso al navegador) */
 export function currentPosition() {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
-      reject(new Error('Tu navegador no permite obtener la ubicación.'));
+      reject(new Error(t('Tu navegador no permite obtener la ubicación.')));
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve({ lat: position.coords.latitude, lon: position.coords.longitude }),
       (error) => reject(new Error(error.code === 1
-        ? 'No diste permiso para usar tu ubicación. Puedes activarlo en el candado de la barra de direcciones.'
-        : 'No pudimos obtener tu ubicación. Inténtalo de nuevo o busca la ciudad.')),
+        ? t('No diste permiso para usar tu ubicación. Puedes activarlo en el candado de la barra de direcciones.')
+        : t('No pudimos obtener tu ubicación. Inténtalo de nuevo o busca la ciudad.'))),
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }
     );
   });
@@ -83,13 +101,13 @@ export function currentPosition() {
 
 export function weatherInfo(code) {
   const match = WEATHER_CODES.find(([max]) => code <= max) || WEATHER_CODES.at(-1);
-  return { emoji: match[1], label: match[2] };
+  return { emoji: match[1], label: t(match[2]) };
 }
 
 export async function forecast(lat, lon) {
   const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error('No se pudo cargar el clima.');
+  if (!response.ok) throw new Error(t('No se pudo cargar el clima.'));
   const { daily } = await response.json();
   return daily.time.map((day, index) => ({
     day,
@@ -120,7 +138,7 @@ function mostFrequent(values) {
 
 async function dailyWeather(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error('No se pudo cargar el clima.');
+  if (!response.ok) throw new Error(t('No se pudo cargar el clima.'));
   const { daily } = await response.json();
   return daily.time.map((day, index) => ({
     day,
@@ -210,7 +228,7 @@ export async function rates(base) {
   }
   const response = await fetch(RATES_URL + base);
   const data = await response.json();
-  if (data.result !== 'success') throw new Error('No se pudieron cargar las divisas.');
+  if (data.result !== 'success') throw new Error(t('No se pudieron cargar las divisas.'));
   localStorage.setItem(key, JSON.stringify({ at: Date.now(), rates: data.rates }));
   return data.rates;
 }

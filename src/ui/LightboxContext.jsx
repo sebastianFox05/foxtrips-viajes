@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import Comments from '../components/Comments.jsx';
 import { safeUrl } from '../lib/utils.js';
 import { store } from '../lib/store/index.js';
+import { t } from '../lib/i18n/index.js';
 
 const LightboxContext = createContext(null);
 
@@ -34,7 +35,7 @@ function LightboxPicture({ photo, index }) {
   return (
     <>
       <source srcSet={webp || undefined} type="image/webp" />
-      <img src={fallback || undefined} alt={photo.caption || `Foto ${index + 1} del viaje`} width={1600} height={1200} decoding="async" />
+      <img src={fallback || undefined} alt={photo.caption || t('Foto {n} del viaje', { n: index + 1 })} width={1600} height={1200} decoding="async" />
     </>
   );
 }
@@ -66,9 +67,9 @@ function Lightbox({ state, onStep, onClosed }) {
 
   const sourceUrl = safeUrl(photo?.source_url || '');
   return (
-    <dialog className="lightbox" id="lightbox" aria-label="Visor de fotos" ref={dialogRef} onKeyDown={keyHandler} onClose={onClosed}>
-      <button className="lightbox__close" type="button" aria-label="Cerrar visor" onClick={() => dialogRef.current.close()}>×</button>
-      <button className="lightbox__nav lightbox__nav--prev" type="button" aria-label="Foto anterior" onClick={() => onStep(-1)}>‹</button>
+    <dialog className="lightbox" id="lightbox" aria-label={t('Visor de fotos')} ref={dialogRef} onKeyDown={keyHandler} onClose={onClosed}>
+      <button className="lightbox__close" type="button" aria-label={t('Cerrar visor')} onClick={() => dialogRef.current.close()}>×</button>
+      <button className="lightbox__nav lightbox__nav--prev" type="button" aria-label={t('Foto anterior')} onClick={() => onStep(-1)}>‹</button>
       <figure className="lightbox__figure">
         <picture className="lightbox__picture" id="lightboxPicture">
           <LightboxPicture photo={photo} index={state?.index || 0} />
@@ -80,14 +81,14 @@ function Lightbox({ state, onStep, onClosed }) {
             {photo?.uploader_name ? <> · <span>{photo.uploader_name}</span></> : null}
             {photo?.credit ? (
               <> · {sourceUrl
-                ? <a className="lightbox__credit" href={sourceUrl} target="_blank" rel="noopener noreferrer">Foto: {photo.credit}</a>
-                : <span className="lightbox__credit">Foto: {photo.credit}</span>}</>
+                ? <a className="lightbox__credit" href={sourceUrl} target="_blank" rel="noopener noreferrer">{t('Foto: {credit}', { credit: photo.credit })}</a>
+                : <span className="lightbox__credit">{t('Foto: {credit}', { credit: photo.credit })}</span>}</>
             ) : null}
           </span>
         </figcaption>
       </figure>
-      <button className="lightbox__nav lightbox__nav--next" type="button" aria-label="Foto siguiente" onClick={() => onStep(1)}>›</button>
-      <section className="lightbox__comments" id="lightboxComments" aria-label="Comentarios de la foto" hidden={!state?.hasComments}>
+      <button className="lightbox__nav lightbox__nav--next" type="button" aria-label={t('Foto siguiente')} onClick={() => onStep(1)}>›</button>
+      <section className="lightbox__comments" id="lightboxComments" aria-label={t('Comentarios de la foto')} hidden={!state?.hasComments}>
         {state?.hasComments && photo ? <Comments key={photo.id} tripId={state.tripId} targetType="photo" targetId={photo.id} headingLevel={2} /> : null}
       </section>
     </dialog>

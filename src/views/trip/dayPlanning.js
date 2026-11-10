@@ -5,6 +5,7 @@
  *   · carretera mas lejos (carro o bus: 60 km/h, o 80 km/h desde 60 km, + unos minutos).
  */
 import { distanceKm } from '../../lib/recommendations.js';
+import { m, t } from '../../lib/i18n/index.js';
 
 const WALK_MAX_KM = 1.6;
 const WALK_KMH = 4.5;
@@ -17,7 +18,8 @@ const HIGHWAY_KMH = 80;
 const ROAD_EXTRA_MIN = 8;
 const TIGHT_GAP_MIN = 15;
 
-export const TRAVEL_LABELS = { walk: 'a pie', city: 'en transporte', road: 'en carro o bus' };
+/* Se traducen al pintarlos con t() */
+export const TRAVEL_LABELS = { walk: m('a pie'), city: m('en transporte'), road: m('en carro o bus') };
 
 export function timeToMinutes(time) {
   const match = /^(\d{1,2}):(\d{2})/.exec(time || '');
@@ -33,10 +35,6 @@ export function travelEstimate(from, to) {
   if (km <= CITY_MAX_KM) return { minutes: Math.round((km / CITY_KMH) * 60 + CITY_WAIT_MIN), km, mode: 'city' };
   const speed = km >= HIGHWAY_FROM_KM ? HIGHWAY_KMH : ROAD_KMH;
   return { minutes: Math.round((km / speed) * 60 + ROAD_EXTRA_MIN), km, mode: 'road' };
-}
-
-export function formatKm(km) {
-  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`;
 }
 
 export function formatMinutes(minutes) {
@@ -64,13 +62,13 @@ export function dayInsights(list) {
     if (start != null && end != null) {
       const gap = end - start;
       if (gap <= 0) {
-        warning = `A la misma hora que «${previous.title}».`;
+        warning = t('A la misma hora que «{name}».', { name: previous.title });
         isConflict = true;
       } else if (travel && travel.minutes > gap) {
-        warning = `No da tiempo: hay ${formatMinutes(gap)} desde «${previous.title}» y el trayecto es de ~${formatMinutes(travel.minutes)}.`;
+        warning = t('No da tiempo: hay {gap} desde «{name}» y el trayecto es de ~{travel}.', { gap: formatMinutes(gap), name: previous.title, travel: formatMinutes(travel.minutes) });
         isConflict = true;
       } else if (gap < TIGHT_GAP_MIN) {
-        warning = `Muy seguido: solo ${formatMinutes(gap)} después de «${previous.title}».`;
+        warning = t('Muy seguido: solo {gap} después de «{name}».', { gap: formatMinutes(gap), name: previous.title });
       }
     }
     if (travel || warning) result.set(current.id, { travel, from: previous.title, warning, isConflict });

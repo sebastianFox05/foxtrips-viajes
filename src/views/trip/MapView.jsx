@@ -4,10 +4,12 @@ import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import { store } from '../../lib/store/index.js';
 import { eachDay, esc, formatDay, sortActivities } from '../../lib/utils.js';
+import { formatTime } from '../../lib/locale.js';
 import Icon from '../../components/Icon.jsx';
 import Scroller from '../../components/Scroller.jsx';
 import useLoad from '../../hooks/useLoad.js';
 import { useTrip } from './TripContext.jsx';
+import { t, tn } from '../../lib/i18n/index.js';
 
 const DAY_COLORS = ['#f08a3c', '#2f80ed', '#9b51e0', '#27ae60', '#eb5757', '#f2c94c', '#56ccf2', '#bb6bd9'];
 
@@ -73,7 +75,7 @@ export default function MapView() {
     const byDay = new Map();
     for (const activity of located) {
       const dayIndex = days.indexOf(activity.day);
-      const popup = `<strong>${esc(activity.title)}</strong><br>${activity.day ? esc(formatDay(activity.day, { weekday: 'short', day: 'numeric', month: 'short' })) : 'Sin día'}${activity.time ? ` · ${esc(activity.time)}` : ''}<br>${esc(activity.place || '')}`;
+      const popup = `<strong>${esc(activity.title)}</strong><br>${activity.day ? esc(formatDay(activity.day, { weekday: 'short', day: 'numeric', month: 'short' })) : esc(t('Sin día'))}${activity.time ? ` · ${esc(formatTime(activity.time))}` : ''}<br>${esc(activity.place || '')}`;
       const marker = L.marker([activity.lat, activity.lon], { icon: pinIcon(dayIndex >= 0 ? dayIndex + 1 : '•', colorFor(activity.day)), title: activity.title })
         .addTo(map)
         .bindPopup(popup);
@@ -96,14 +98,14 @@ export default function MapView() {
 
   if (!data) return null;
   const missing = activities.filter((activity) => activity.lat == null && activity.place).length;
-  const options = [{ key: 'all', label: 'Todos los días', color: '#141414' }]
-    .concat(days.map((day, index) => ({ key: day, label: `Día ${index + 1}`, color: colorFor(day) })));
+  const options = [{ key: 'all', label: t('Todos los días'), color: '#141414' }]
+    .concat(days.map((day, index) => ({ key: day, label: t('Día {n}', { n: index + 1 }), color: colorFor(day) })));
 
   return (
     <section className="map" aria-labelledby="mapTitle">
       <div className="section__head">
-        <h2 id="mapTitle">Mapa del viaje</h2>
-        <span className="section__hint"><Icon name="pin" size={14} /> {activities.filter((activity) => activity.lat != null).length} lugares</span>
+        <h2 id="mapTitle">{t('Mapa del viaje')}</h2>
+        <span className="section__hint"><Icon name="pin" size={14} /> {tn(activities.filter((activity) => activity.lat != null).length, '{n} lugar', '{n} lugares')}</span>
       </div>
       <Scroller>
         <ul className="chips map__legend" id="mapLegend">
@@ -116,8 +118,8 @@ export default function MapView() {
           ))}
         </ul>
       </Scroller>
-      <div className="map__canvas" id="mapCanvas" role="region" aria-label="Mapa interactivo con los lugares del viaje" ref={canvasRef} />
-      {missing ? <p className="section__hint">{missing} actividad(es) tienen lugar pero no se pudieron ubicar. Edítalas con una dirección más precisa.</p> : null}
+      <div className="map__canvas" id="mapCanvas" role="region" aria-label={t('Mapa interactivo con los lugares del viaje')} ref={canvasRef} />
+      {missing ? <p className="section__hint">{tn(missing, '{n} actividad tiene lugar pero no se pudo ubicar. Edítala con una dirección más precisa.', '{n} actividades tienen lugar pero no se pudieron ubicar. Edítalas con una dirección más precisa.')}</p> : null}
     </section>
   );
 }

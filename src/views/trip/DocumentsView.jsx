@@ -5,9 +5,10 @@ import Icon from '../../components/Icon.jsx';
 import useLoad from '../../hooks/useLoad.js';
 import { useUi } from '../../ui/UiContext.jsx';
 import { useTrip } from './TripContext.jsx';
+import { m, t } from '../../lib/i18n/index.js';
 
 const MAX_BYTES = 15 * 1024 * 1024;
-const KINDS = { pdf: 'PDF', image: 'Imagen', other: 'Archivo' };
+const KINDS = { pdf: 'PDF', image: m('Imagen'), other: m('Archivo') };
 
 function kindOf(file) {
   if (file.type === 'application/pdf') return 'pdf';
@@ -31,7 +32,7 @@ export default function DocumentsView() {
     event.target.value = '';
     for (const file of files) {
       if (file.size > MAX_BYTES) {
-        toast(`"${file.name}" pesa más de 15 MB`, { isError: true });
+        toast(t('"{name}" pesa más de 15 MB', { name: file.name }), { isError: true });
         continue;
       }
       try {
@@ -45,8 +46,8 @@ export default function DocumentsView() {
           url: stored.url,
           uploaded_by: store.user.id,
           uploader_name: store.user.name
-        }, { tripId, text: `subió el documento "${file.name}"` });
-        toast(`"${file.name}" guardado`);
+        }, { tripId, text: t('subió el documento "{name}"', { name: file.name }) });
+        toast(t('"{name}" guardado', { name: file.name }));
       } catch (error) {
         toastError(error);
       }
@@ -70,9 +71,9 @@ export default function DocumentsView() {
   }
 
   async function deleteHandler(doc) {
-    if (!await confirm(`Se borrará "${doc.name}" para todo el grupo.`)) return;
+    if (!await confirm(t('Se borrará "{name}" para todo el grupo.', { name: doc.name }))) return;
     try {
-      await store.remove('documents', doc.id, { tripId, text: `eliminó el documento "${doc.name}"` });
+      await store.remove('documents', doc.id, { tripId, text: t('eliminó el documento "{name}"', { name: doc.name }) });
       await store.removeFile('documents', doc.storage_path).catch(() => null);
       refresh();
     } catch (error) {
@@ -84,12 +85,12 @@ export default function DocumentsView() {
     <>
       <div className="section__head">
         <div>
-          <h2>Documentos</h2>
-          <p className="section__hint">Billetes, reservas y seguros, siempre a mano.</p>
+          <h2>{t('Documentos')}</h2>
+          <p className="section__hint">{t('Billetes, reservas y seguros, siempre a mano.')}</p>
         </div>
         {canEdit ? (
           <>
-            <label className="btn btn--primary btn--small" htmlFor="docInput"><Icon name="upload" size={16} /> Subir</label>
+            <label className="btn btn--primary btn--small" htmlFor="docInput"><Icon name="upload" size={16} /> {t('Subir')}</label>
             <input className="visually-hidden" id="docInput" type="file" multiple accept=".pdf,image/*,.doc,.docx,.txt" onChange={filesHandler} />
           </>
         ) : null}
@@ -102,11 +103,11 @@ export default function DocumentsView() {
                 <span className="row__icon"><Icon name={doc.kind === 'image' ? 'image' : 'file'} /></span>
                 <div className="row__body">
                   <p className="row__title">{doc.name}</p>
-                  <p className="row__meta">{KINDS[doc.kind] || 'Archivo'} · {fileSize(doc.size)} · {doc.uploader_name || ''} · {timeAgo(doc.created_at)}</p>
+                  <p className="row__meta">{t(KINDS[doc.kind] || 'Archivo')} · {fileSize(doc.size)} · {doc.uploader_name || ''} · {timeAgo(doc.created_at)}</p>
                 </div>
                 <div className="row__actions">
-                  <button className="btn btn--small" type="button" onClick={() => openHandler(doc)}><Icon name="eye" size={16} /> Abrir</button>
-                  {canEdit ? <button className="btn btn--ghost btn--small btn--icon btn--danger" type="button" aria-label={`Eliminar ${doc.name}`} onClick={() => deleteHandler(doc)}><Icon name="trash" size={16} /></button> : null}
+                  <button className="btn btn--small" type="button" onClick={() => openHandler(doc)}><Icon name="eye" size={16} /> {t('Abrir')}</button>
+                  {canEdit ? <button className="btn btn--ghost btn--small btn--icon btn--danger" type="button" aria-label={t('Eliminar {title}', { title: doc.name })} onClick={() => deleteHandler(doc)}><Icon name="trash" size={16} /></button> : null}
                 </div>
               </li>
             ))}
@@ -114,8 +115,8 @@ export default function DocumentsView() {
         ) : (
           <div className="empty empty--flat">
             <span className="empty__icon"><Icon name="file" size={28} /></span>
-            <h3 className="empty__title">Sin documentos</h3>
-            <p className="empty__text">Sube los billetes y reservas para tenerlos en el viaje.</p>
+            <h3 className="empty__title">{t('Sin documentos')}</h3>
+            <p className="empty__text">{t('Sube los billetes y reservas para tenerlos en el viaje.')}</p>
           </div>
         )}
       </section>

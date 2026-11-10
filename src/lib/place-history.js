@@ -9,6 +9,8 @@
  *   Si ninguno se parece, no se muestra nada: mejor nada que la historia de otro sitio.
  * Se prefiere el espanol; si el mejor es un articulo en ingles, se usa su version en espanol si existe.
  */
+import { getLanguage, t } from './i18n/index.js';
+
 const CACHE_PREFIX = 'foxtrips:historia:';
 const CACHE_TTL = 30 * 86400000;
 const MISS_TTL = 86400000;
@@ -90,7 +92,7 @@ function writeCache(key, value) {
 async function wiki(lang, params) {
   const query = new URLSearchParams({ action: 'query', format: 'json', origin: '*', ...params });
   const response = await fetch(`https://${lang}.wikipedia.org/w/api.php?${query}`);
-  if (!response.ok) throw new Error('Wikipedia no respondió. Inténtalo en un momento.');
+  if (!response.ok) throw new Error(t('Wikipedia no respondió. Inténtalo en un momento.'));
   return response.json();
 }
 
@@ -221,8 +223,9 @@ async function article(lang, title) {
   };
 }
 
-async function spanishVersion(enTitle) {
-  const data = await wiki('en', { prop: 'langlinks', titles: enTitle, lllang: 'es', redirects: '1' });
+/* Titulo del mismo articulo en otro idioma (a partir del de Wikipedia en ingles) */
+async function localVersion(enTitle, lang) {
+  const data = await wiki('en', { prop: 'langlinks', titles: enTitle, lllang: lang, redirects: '1' });
   const page = Object.values(data.query?.pages || {})[0];
   return page?.langlinks?.[0]?.['*'] || null;
 }
@@ -235,18 +238,20 @@ async function spanishVersion(enTitle) {
  * Si Wikipedia falla lanza un error (y no se guarda nada en cache, para reintentar).
  */
 export async function placeHistory(activity) {
-  const key = normalize(`${activity.title}|${activity.place || ''}|${activity.lat ?? ''}|${activity.lon ?? ''}`);
+  // Se busca en la Wikipedia del idioma de la app y en la inglesa (la mas completa)
+  const lang = getLanguage();
+  const key = normalize(`${lang === 'es' ? '' : `${lang}|`}${activity.title}|${activity.place || ''}|${activity.lat ?? ''}|${activity.lon ?? ''}`);
   const cached = readCache(key);
   if (cached !== undefined) return cached;
 
-  const [inSpanish, inEnglish] = await Promise.all([bestMatch('es', activity), bestMatch('en', activity)]);
+  const [inLocal, inEnglish] = await Promise.all([lang === 'en' ? null : bestMatch(lang, activity), bestMatch('en', activity)]);
   let result = null;
-  const isEnglishBetter = inEnglish && (!inSpanish || inEnglish.score > inSpanish.score + ENGLISH_ADVANTAGE);
+  const isEnglishBetter = inEnglish && (!inLocal || inEnglish.score > inLocal.score + ENGLISH_ADVANTAGE);
   if (isEnglishBetter) {
-    const translated = await spanishVersion(inEnglish.title);
-    result = (translated && await article('es', translated)) || await article('en', inEnglish.title);
+    const translated = lang === 'en' ? null : await localVersion(inEnglish.title, lang);
+    result = (translated && await article(lang, translated)) || await article('en', inEnglish.title);
   }
-  if (!result && inSpanish) result = await article('es', inSpanish.title);
+  if (!result && inLocal) result = await article(lang, inLocal.title);
   if (!result && inEnglish && !isEnglishBetter) result = await article('en', inEnglish.title);
   writeCache(key, result);
   return result;

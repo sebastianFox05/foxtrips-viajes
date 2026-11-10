@@ -70,6 +70,15 @@ En Supabase → **Authentication → URL Configuration**:
 
 Para publicar cambios, pídeselo a Claude o usa `netlify deploy --prod` desde esta carpeta.
 
+## Idiomas y región
+
+- **Idioma de la app**: español, inglés y portugués. Se elige solo según el dispositivo y se cambia en Perfil → «Idioma y región» (o en la pantalla de acceso).
+- **Cómo se traduce**: los textos del código están en español y se envuelven en `t('…')` (`src/lib/i18n/index.js`). Las traducciones viven en `src/lib/i18n/en.js` y `pt.js`. `npm run i18n` avisa de los textos que falten. Para añadir un idioma: un archivo nuevo con las mismas claves y una línea en `LANGUAGES` y `DICTIONARIES`.
+- **Formatos regionales** (`src/lib/locale.js`): hora de 12 o 24 h, °C o °F, km o millas y moneda de casa, automáticos según la región y editables en Perfil. La lista de monedas cubre todos los países (`src/lib/currencies.js`); al elegir el destino de un viaje se propone su moneda.
+- **Zona horaria**: las horas de los planes son siempre las del destino. El resumen muestra la hora actual allí y el itinerario avisa de la diferencia con tu hora (`src/lib/destination.js`).
+- **Frases**: 95 frases en inglés, español, portugués, francés, italiano, alemán y japonés (`src/lib/phrases.js`). Se muestran en el idioma del país del destino y se explican en el idioma de la app.
+- El historial guarda cada cambio escrito en el idioma de quien lo hizo.
+
 ## Roles
 
 | Rol | Puede |

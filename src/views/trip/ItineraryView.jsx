@@ -11,7 +11,7 @@ import { store } from '../../lib/store/index.js';
 import { uploadPhoto } from '../../lib/media.js';
 import { geocode } from '../../lib/services.js';
 import { placeHistory } from '../../lib/place-history.js';
-import { debounce, eachDay, formatDay, formToObject, parseDay, safeUrl, sortActivities, today } from '../../lib/utils.js';
+import { debounce, eachDay, formatDay, formatWeekday, formToObject, parseDay, safeUrl, sortActivities } from '../../lib/utils.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import Scroller from '../../components/Scroller.jsx';
@@ -21,13 +21,15 @@ import useLoad from '../../hooks/useLoad.js';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useTrip } from './TripContext.jsx';
 import { PRINT_FLAG } from './TripLayout.jsx';
-import { TRAVEL_LABELS, dayInsights, formatKm, formatMinutes } from './dayPlanning.js';
+import { TRAVEL_LABELS, dayInsights, formatMinutes } from './dayPlanning.js';
+import { formatDistance, formatHours, formatTime, intlLocale, zoneDifferenceHours, zoneLabel } from '../../lib/locale.js';
+import { getLanguage, m, t, tn } from '../../lib/i18n/index.js';
 
 const LOOSE_KEY = 'sin-dia';
 const VIEW_KEY = 'foxtrips:itinerary-view';
 const VIEW_MODES = [
-  { key: 'carrete', label: 'Carrete', icon: 'image' },
-  { key: 'lista', label: 'Lista', icon: 'calendar' }
+  { key: 'carrete', label: m('Carrete'), icon: 'image' },
+  { key: 'lista', label: m('Lista'), icon: 'calendar' }
 ];
 const CARD_HUES = [24, 200, 330, 150, 265, 45, 185];
 const DAY_DROP_PREFIX = 'dia:';
@@ -44,29 +46,31 @@ function dropTarget(args) {
   return closestCenter(args);
 }
 
-/* Textos para lectores de pantalla al arrastrar (en español) */
-const DRAG_INSTRUCTIONS = {
-  draggable: 'Para mover un plan pulsa espacio, usa las flechas para llevarlo sobre otro plan (intercambia su horario) o sobre un día (lo mueve a ese día) y vuelve a pulsar espacio. Escape cancela.'
-};
+/* Textos para lectores de pantalla al arrastrar */
+function dragInstructions() {
+  return {
+    draggable: t('Para mover un plan pulsa espacio, usa las flechas para llevarlo sobre otro plan (intercambia su horario) o sobre un día (lo mueve a ese día) y vuelve a pulsar espacio. Escape cancela.')
+  };
+}
 function DRAG_ANNOUNCEMENTS(activities) {
   const nameOf = (id) => {
     const text = String(id);
     if (text.startsWith(DAY_DROP_PREFIX)) {
       const day = text.slice(DAY_DROP_PREFIX.length);
-      return day === LOOSE_KEY ? 'Ideas sueltas' : `el día ${formatDay(day, { day: 'numeric', month: 'long' })}`;
+      return day === LOOSE_KEY ? t('Ideas sueltas') : formatDay(day, { day: 'numeric', month: 'long' });
     }
-    return `"${activities.find((activity) => activity.id === id)?.title || 'el plan'}"`;
+    return `"${activities.find((activity) => activity.id === id)?.title || t('el plan')}"`;
   };
   const isDay = (id) => String(id).startsWith(DAY_DROP_PREFIX);
   return {
-    onDragStart: ({ active }) => `Has cogido ${nameOf(active.id)}.`,
+    onDragStart: ({ active }) => t('Has cogido {name}.', { name: nameOf(active.id) }),
     onDragOver: ({ active, over }) => (over && over.id !== active.id
-      ? `Sobre ${nameOf(over.id)}. Suelta para ${isDay(over.id) ? 'moverlo a ese día' : 'intercambiar el horario'}.`
-      : `${nameOf(active.id)} sin destino.`),
+      ? t(isDay(over.id) ? 'Sobre {name}. Suelta para moverlo a ese día.' : 'Sobre {name}. Suelta para intercambiar el horario.', { name: nameOf(over.id) })
+      : t('{name} sin destino.', { name: nameOf(active.id) })),
     onDragEnd: ({ active, over }) => (over && over.id !== active.id
-      ? `${isDay(over.id) ? 'Movido' : 'Intercambiado con'} ${nameOf(over.id)}.`
-      : 'No se cambió nada.'),
-    onDragCancel: () => 'Movimiento cancelado. No se cambió nada.'
+      ? t(isDay(over.id) ? 'Movido a {name}.' : 'Intercambiado con {name}.', { name: nameOf(over.id) })
+      : t('No se cambió nada.')),
+    onDragCancel: () => t('Movimiento cancelado. No se cambió nada.')
   };
 }
 
@@ -80,10 +84,10 @@ function currentMode() {
 }
 
 function bigDate(day) {
-  if (day === LOOSE_KEY) return { main: 'IDEAS', sub: 'Planes sin día asignado' };
+  if (day === LOOSE_KEY) return { main: t('IDEAS'), sub: t('Planes sin día asignado') };
   const date = parseDay(day);
-  const month = date.toLocaleDateString('es', { month: 'short' }).replace('.', '').toUpperCase();
-  return { main: `${date.getDate()} ${month}`, sub: formatDay(day, { weekday: 'long' }) };
+  const main = date.toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' }).replace(/\./g, '').replace(/ de /g, ' ').toUpperCase();
+  return { main, sub: formatDay(day, { weekday: 'long' }) };
 }
 
 /* ---- Historia del lugar (Wikipedia) ---- */
@@ -104,14 +108,14 @@ function HistoryContent({ activity }) {
     };
   }, [activity]);
 
-  if (state.status === 'loading') return <p className="loading">Buscando la historia de este lugar…</p>;
+  if (state.status === 'loading') return <p className="loading">{t('Buscando la historia de este lugar…')}</p>;
   if (state.status === 'error') return <p className="history__empty">{state.message}</p>;
   if (state.status === 'empty') {
-    const search = `https://es.wikipedia.org/w/index.php?search=${encodeURIComponent(activity.place || activity.title)}`;
+    const search = `https://${getLanguage()}.wikipedia.org/w/index.php?search=${encodeURIComponent(activity.place || activity.title)}`;
     return (
       <div className="history">
-        <p className="history__empty">No encontramos la historia de este lugar en Wikipedia. Suele pasar con restaurantes, hoteles, traslados o sitios muy nuevos.</p>
-        <p className="history__source"><a href={search} target="_blank" rel="noopener noreferrer">Buscarlo en Wikipedia</a></p>
+        <p className="history__empty">{t('No encontramos la historia de este lugar en Wikipedia. Suele pasar con restaurantes, hoteles, traslados o sitios muy nuevos.')}</p>
+        <p className="history__source"><a href={search} target="_blank" rel="noopener noreferrer">{t('Buscarlo en Wikipedia')}</a></p>
       </div>
     );
   }
@@ -123,18 +127,18 @@ function HistoryContent({ activity }) {
         {history.description ? <p className="history__description">{history.description}</p> : null}
       </header>
       <section className="history__block" aria-labelledby="historyFamous">
-        <h3 className="history__heading" id="historyFamous"><Icon name="star" size={16} /> Por qué es famoso</h3>
+        <h3 className="history__heading" id="historyFamous"><Icon name="star" size={16} /> {t('Por qué es famoso')}</h3>
         <Paragraphs text={history.intro} />
       </section>
       {history.history ? (
         <section className="history__block" aria-labelledby="historyPast">
-          <h3 className="history__heading" id="historyPast"><Icon name="clock" size={16} /> Su historia</h3>
+          <h3 className="history__heading" id="historyPast"><Icon name="clock" size={16} /> {t('Su historia')}</h3>
           <Paragraphs text={history.history} />
         </section>
       ) : null}
       <p className="history__source">
-        {history.lang === 'en' ? 'Este lugar solo tiene artículo en inglés. ' : ''}
-        Fuente: <a href={safeUrl(history.url)} target="_blank" rel="noopener noreferrer">Wikipedia, artículo completo</a> · Texto con licencia CC BY-SA 4.0.
+        {history.lang !== getLanguage() ? `${t('Este lugar solo tiene artículo en inglés.')} ` : ''}
+        {t('Fuente:')} <a href={safeUrl(history.url)} target="_blank" rel="noopener noreferrer">{t('Wikipedia, artículo completo')}</a> · {t('Texto con licencia CC BY-SA 4.0.')}
       </p>
     </article>
   );
@@ -169,7 +173,7 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
             : null;
           patch.lat = located?.lat ?? null;
           patch.lon = located?.lon ?? null;
-          if (data.place && !located) toast('No encontramos el lugar en el mapa; se guarda sin ubicación.');
+          if (data.place && !located) toast(t('No encontramos el lugar en el mapa; se guarda sin ubicación.'));
         }
         if (data.remove_image) Object.assign(patch, { image_url: null, image_thumb: null });
         let photoUpload = null;
@@ -178,9 +182,9 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
           Object.assign(patch, { image_url: photoUpload.url, image_thumb: photoUpload.thumb_url });
         }
         const saved = activity.id
-          ? await store.update('activities', activity.id, patch, { tripId, text: `editó la actividad "${data.title}"` })
+          ? await store.update('activities', activity.id, patch, { tripId, text: t('editó la actividad "{title}"', { title: data.title }) })
           : await store.insert('activities', { ...patch, trip_id: tripId, created_by: store.user.id, created_by_name: store.user.name },
-            { tripId, text: `añadió la actividad "${data.title}"` });
+            { tripId, text: t('añadió la actividad "{title}"', { title: data.title }) });
         if (photoUpload) {
           await store.insert('photos', {
             ...photoUpload,
@@ -192,7 +196,7 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
             uploader_name: store.user.name
           });
         }
-        toast(activity.id ? 'Actividad actualizada' : 'Añadida al plan');
+        toast(activity.id ? t('Actividad actualizada') : t('Añadida al plan'));
         onSaved(patch.day);
       });
     } catch (error) {
@@ -203,58 +207,58 @@ function ActivityForm({ trip, tripId, reelDays, activity = {}, presetDay = '', o
   return (
     <form className="form" onSubmit={submitHandler}>
       <div className="form__field">
-        <label className="form__label" htmlFor="actTitle">¿Qué vais a hacer?</label>
-        <input className="form__input" id="actTitle" name="title" required maxLength={100} defaultValue={activity.title || ''} placeholder="Ej. Tour por la ciudad amurallada" />
+        <label className="form__label" htmlFor="actTitle">{t('¿Qué vais a hacer?')}</label>
+        <input className="form__input" id="actTitle" name="title" required maxLength={100} defaultValue={activity.title || ''} placeholder={t('Ej. Tour por la ciudad amurallada')} />
       </div>
       <div className="form__row">
         <div className="form__field">
-          <label className="form__label" htmlFor="actDay">Día</label>
+          <label className="form__label" htmlFor="actDay">{t('Día')}</label>
           <select className="form__select" id="actDay" name="day" defaultValue={selected || ''}>
-            <option value="">Sin día</option>
+            <option value="">{t('Sin día')}</option>
             {/* Un dia fuera de las fechas del viaje se mantiene como opcion para no borrarlo sin avisar */}
-            {isOutside ? <option value={selected}>{formatDay(selected, { weekday: 'short', day: 'numeric', month: 'short' })} (fuera del viaje)</option> : null}
-            {reelDays.map((day, index) => <option key={day} value={day}>Día {index + 1} · {formatDay(day, { weekday: 'short', day: 'numeric', month: 'short' })}</option>)}
+            {isOutside ? <option value={selected}>{t('{day} (fuera del viaje)', { day: formatDay(selected, { weekday: 'short', day: 'numeric', month: 'short' }) })}</option> : null}
+            {reelDays.map((day, index) => <option key={day} value={day}>{t('Día {n}', { n: index + 1 })} · {formatDay(day, { weekday: 'short', day: 'numeric', month: 'short' })}</option>)}
           </select>
         </div>
         <div className="form__field">
-          <label className="form__label" htmlFor="actTime">Hora</label>
+          <label className="form__label" htmlFor="actTime">{t('Hora')}</label>
           <input className="form__input" id="actTime" name="time" type="time" defaultValue={activity.time || ''} />
         </div>
       </div>
       <div className="form__field suggest-host">
-        <label className="form__label" htmlFor="actPlace">Lugar</label>
+        <label className="form__label" htmlFor="actPlace">{t('Lugar')}</label>
         <SuggestInput
           id="actPlace"
           name="place"
           kind="place"
           maxLength={160}
           defaultValue={activity.place || ''}
-          placeholder="Museo, restaurante, dirección…"
+          placeholder={t('Museo, restaurante, dirección…')}
           near={trip.lat != null ? { lat: trip.lat, lon: trip.lon } : null}
           isOverlay
           withCoords
           defaultCoords={{ lat: activity.lat, lon: activity.lon }}
         />
-        <p className="form__help">Elige el sitio del menú para ubicarlo exacto en el mapa (salen primero los cercanos al destino).</p>
+        <p className="form__help">{t('Elige el sitio del menú para ubicarlo exacto en el mapa (salen primero los cercanos al destino).')}</p>
       </div>
       <div className="form__field">
-        <label className="form__label" htmlFor="actNotes">Notas</label>
-        <textarea className="form__textarea" id="actNotes" name="notes" maxLength={1000} placeholder="Reservas, precios, cómo llegar…" defaultValue={activity.notes || ''} />
+        <label className="form__label" htmlFor="actNotes">{t('Notas')}</label>
+        <textarea className="form__textarea" id="actNotes" name="notes" maxLength={1000} placeholder={t('Reservas, precios, cómo llegar…')} defaultValue={activity.notes || ''} />
       </div>
       <div className="form__field">
-        <label className="form__label" htmlFor="actImage">Imagen del sitio</label>
+        <label className="form__label" htmlFor="actImage">{t('Imagen del sitio')}</label>
         <input className="form__input" id="actImage" name="image" type="file" accept="image/*" />
-        <p className="form__help">También se guarda en el álbum del viaje.</p>
+        <p className="form__help">{t('También se guarda en el álbum del viaje.')}</p>
         {activity.image_url ? (
           <>
-            <figure className="form__preview"><Picture url={activity.image_url} alt="Imagen actual" width={220} height={140} /></figure>
-            <label className="form__check"><input type="checkbox" name="remove_image" value="1" /> Quitar la imagen</label>
+            <figure className="form__preview"><Picture url={activity.image_url} alt={t('Imagen actual')} width={220} height={140} /></figure>
+            <label className="form__check"><input type="checkbox" name="remove_image" value="1" /> {t('Quitar la imagen')}</label>
           </>
         ) : null}
       </div>
       <div className="form__actions">
-        <button className="btn" type="button" onClick={onCancel}>Cancelar</button>
-        <button className="btn btn--primary" type="submit" disabled={isBusy}>{isBusy ? 'Guardando…' : activity.id ? 'Guardar' : 'Añadir al plan'}</button>
+        <button className="btn" type="button" onClick={onCancel}>{t('Cancelar')}</button>
+        <button className="btn btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : activity.id ? t('Guardar') : t('Añadir al plan')}</button>
       </div>
     </form>
   );
@@ -297,8 +301,8 @@ function ActivityPlanning({ insight }) {
         <p className="activity__travel">
           <Icon name={{ walk: 'walk', city: 'train', road: 'map' }[travel.mode]} size={14} />
           {travel.minutes === 0
-            ? <> En el mismo sitio que «{from}»</>
-            : <> ~{formatMinutes(travel.minutes)} {TRAVEL_LABELS[travel.mode]} desde «{from}» · {formatKm(travel.km)}</>}
+            ? <> {t('En el mismo sitio que «{name}»', { name: from })}</>
+            : <> {t('~{time} {mode} desde «{name}»', { time: formatMinutes(travel.minutes), mode: t(TRAVEL_LABELS[travel.mode]), name: from })} · {formatDistance(travel.km)}</>}
         </p>
       ) : null}
       {warning ? (
@@ -320,17 +324,17 @@ function Activity({ activity, comments, isPrint = false, handlers, insight, card
       <article className={`activity ${insight?.isConflict ? 'activity--conflict ' : ''}${dragClass}`.trim()} ref={cardRef} {...cardProps}>
         {hasMedia ? (
           <figure className="activity__media">
-            <Picture url={activity.image_url} alt={`Foto de ${activity.title}`} width={800} height={500} />
+            <Picture url={activity.image_url} alt={t('Foto de {title}', { title: activity.title })} width={800} height={500} />
             <figcaption className="activity__media-text">
               <h4 className="activity__title">{activity.title}</h4>
               {place}
             </figcaption>
-            {activity.image_credit ? <small className="activity__credit">Foto: {activity.image_credit}</small> : null}
+            {activity.image_credit ? <small className="activity__credit">{t('Foto: {credit}', { credit: activity.image_credit })}</small> : null}
           </figure>
         ) : null}
         {isPrint ? null : <ActivityPlanning insight={insight} />}
         <div className="activity__body">
-          <span className="activity__time">{activity.time || '—'}</span>
+          <span className="activity__time">{formatTime(activity.time) || '—'}</span>
           <div className="activity__info">
             {hasMedia ? null : <><h4 className="activity__title">{activity.title}</h4>{place}</>}
             {activity.notes ? <p className="activity__notes">{activity.notes}</p> : null}
@@ -338,20 +342,20 @@ function Activity({ activity, comments, isPrint = false, handlers, insight, card
         </div>
         {isPrint ? null : (
           <footer className="activity__footer">
-            <span>{activity.created_by_name ? `Añadido por ${activity.created_by_name}` : ''}</span>
+            <span>{activity.created_by_name ? t('Añadido por {name}', { name: activity.created_by_name }) : ''}</span>
             <div className="activity__actions">
               {handleProps ? (
-                <button {...handleProps} className="btn btn--ghost btn--small btn--icon activity__handle" type="button" aria-label={`Mover ${activity.title} para intercambiar su horario con otro plan`} title="Arrastra para intercambiar el horario">
+                <button {...handleProps} className="btn btn--ghost btn--small btn--icon activity__handle" type="button" aria-label={t('Mover {title} para intercambiar su horario con otro plan', { title: activity.title })} title={t('Arrastra para intercambiar el horario')}>
                   <Icon name="grip" size={16} />
                 </button>
               ) : null}
-              <button className="btn btn--ghost btn--small" type="button" aria-label={`Historia de ${activity.title}`} onClick={() => handlers.history(activity)}><Icon name="book" size={16} /> Historia</button>
-              <button className="btn btn--ghost btn--small" type="button" aria-label={`Comentarios de ${activity.title}: ${commentCount}`} onClick={() => handlers.comments(activity)}><Icon name="chat" size={16} /> {commentCount}</button>
-              {activity.lat != null ? <a className="btn btn--ghost btn--small btn--icon" href={`#/viaje/${trip.id}/mapa?foco=${activity.id}`} aria-label={`Ver ${activity.title} en el mapa`}><Icon name="map" size={16} /></a> : null}
+              <button className="btn btn--ghost btn--small" type="button" aria-label={t('Historia de {title}', { title: activity.title })} onClick={() => handlers.history(activity)}><Icon name="book" size={16} /> {t('Historia')}</button>
+              <button className="btn btn--ghost btn--small" type="button" aria-label={t('Comentarios de {title}: {n}', { title: activity.title, n: commentCount })} onClick={() => handlers.comments(activity)}><Icon name="chat" size={16} /> {commentCount}</button>
+              {activity.lat != null ? <a className="btn btn--ghost btn--small btn--icon" href={`#/viaje/${trip.id}/mapa?foco=${activity.id}`} aria-label={t('Ver {title} en el mapa', { title: activity.title })}><Icon name="map" size={16} /></a> : null}
               {canEdit ? (
                 <>
-                  <button className="btn btn--ghost btn--small btn--icon" type="button" aria-label={`Editar ${activity.title}`} onClick={() => handlers.edit(activity)}><Icon name="edit" size={16} /></button>
-                  <button className="btn btn--ghost btn--small btn--icon btn--danger" type="button" aria-label={`Eliminar ${activity.title}`} onClick={() => handlers.remove(activity)}><Icon name="trash" size={16} /></button>
+                  <button className="btn btn--ghost btn--small btn--icon" type="button" aria-label={t('Editar {title}', { title: activity.title })} onClick={() => handlers.edit(activity)}><Icon name="edit" size={16} /></button>
+                  <button className="btn btn--ghost btn--small btn--icon btn--danger" type="button" aria-label={t('Eliminar {title}', { title: activity.title })} onClick={() => handlers.remove(activity)}><Icon name="trash" size={16} /></button>
                 </>
               ) : null}
             </div>
@@ -378,8 +382,8 @@ function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
   const withImage = list.find((activity) => activity.image_url);
   const image = withImage?.image_url || coverUrl;
   const isLoose = day === LOOSE_KEY;
-  const label = isLoose ? 'Ideas' : `Día ${index + 1}`;
-  const title = isLoose ? 'Ideas sueltas' : list[0]?.title || 'Día libre';
+  const label = isLoose ? t('Ideas') : t('Día {n}', { n: index + 1 });
+  const title = isLoose ? t('Ideas sueltas') : list[0]?.title || t('Día libre');
   return (
     <li className="day-reel__item" ref={setNodeRef}>
       <button
@@ -388,16 +392,16 @@ function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
         data-day={day}
         style={{ '--card-hue': CARD_HUES[index % CARD_HUES.length] }}
         aria-pressed={isActive}
-        aria-label={`${label}: ${isLoose ? 'ideas sueltas' : formatDay(day)}, ${list.length} planes`}
+        aria-label={`${label}: ${isLoose ? t('Ideas sueltas') : formatDay(day)}, ${tn(list.length, '{n} plan', '{n} planes')}`}
         onClick={() => onSelect(day)}
       >
         {image ? <Picture url={image} className="day-card__media" width={480} height={640} isLazy={index > 2} /> : null}
         <span className="day-card__tags">
           <span className="day-card__tag">{label}</span>
-          <span className="day-card__tag">{list.length} plan{list.length === 1 ? '' : 'es'}</span>
+          <span className="day-card__tag">{tn(list.length, '{n} plan', '{n} planes')}</span>
         </span>
         <span className="day-card__bottom">
-          <span className="day-card__weekday">{isLoose ? 'Sin fecha' : formatDay(day, { weekday: 'long', day: 'numeric' })}</span>
+          <span className="day-card__weekday">{isLoose ? t('Sin fecha') : formatWeekday(day)}</span>
           <span className="day-card__title">{title}</span>
         </span>
       </button>
@@ -406,7 +410,7 @@ function DayCard({ day, index, list, isActive, coverUrl, onSelect }) {
 }
 
 export default function ItineraryView() {
-  const { trip, tripId, canEdit, refreshKey, refresh } = useTrip();
+  const { trip, tripId, canEdit, refreshKey, refresh, timeZone, tripToday } = useTrip();
   const { openModal, closeModal, confirm, toast, toastError } = useUi();
   const [mode, setMode] = useState(currentMode);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -442,7 +446,7 @@ export default function ItineraryView() {
   // Dia inicial: el recordado (mismo viaje), hoy si cae en el viaje, o el primero
   let currentDay = selectedDay;
   if (!currentDay && data) {
-    const now = today();
+    const now = tripToday;
     if (rememberedTripId === tripId && rememberedDay && (reelDays.includes(rememberedDay) || rememberedDay === LOOSE_KEY)) currentDay = rememberedDay;
     else currentDay = reelDays.includes(now) ? now : reelDays[0] || LOOSE_KEY;
   }
@@ -540,19 +544,19 @@ export default function ItineraryView() {
   }
 
   function newActivityHandler(day) {
-    openModal('Nueva actividad', <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} presetDay={day === LOOSE_KEY ? '' : day} onSaved={savedHandler} onCancel={closeModal} />);
+    openModal(t('Nueva actividad'), <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} presetDay={day === LOOSE_KEY ? '' : day} onSaved={savedHandler} onCancel={closeModal} />);
   }
 
   const handlers = {
     edit(activity) {
-      openModal('Editar actividad', <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} activity={activity} onSaved={savedHandler} onCancel={closeModal} />);
+      openModal(t('Editar actividad'), <ActivityForm trip={trip} tripId={tripId} reelDays={reelDays} activity={activity} onSaved={savedHandler} onCancel={closeModal} />);
     },
     async remove(activity) {
-      const isConfirmed = await confirm(`Se quitará "${activity.title}" del itinerario. Sus fotos seguirán en el álbum.`);
+      const isConfirmed = await confirm(t('Se quitará "{title}" del itinerario. Sus fotos seguirán en el álbum.', { title: activity.title }));
       if (!isConfirmed) return;
       try {
-        await store.remove('activities', activity.id, { tripId, text: `eliminó la actividad "${activity.title}"` });
-        toast('Actividad eliminada');
+        await store.remove('activities', activity.id, { tripId, text: t('eliminó la actividad "{title}"', { title: activity.title }) });
+        toast(t('Actividad eliminada'));
         refresh();
       } catch (error) {
         toastError(error);
@@ -572,7 +576,7 @@ export default function ItineraryView() {
    */
   // El orden manual (planes sin hora) solo existe si la base de datos ya tiene la columna sort_order
   const hasManualOrder = (data?.[0] || []).some((activity) => 'sort_order' in activity);
-  const dayLabel = (day) => (day ? formatDay(day, { day: 'numeric', month: 'short' }) : 'Ideas sueltas');
+  const dayLabel = (day) => (day ? formatDay(day, { day: 'numeric', month: 'short' }) : t('Ideas sueltas'));
 
   /* Guarda varios cambios de planes: se ven al momento y se deshacen si falla la nube */
   async function applyChanges(changes, logText) {
@@ -598,7 +602,7 @@ export default function ItineraryView() {
 
   /* Deja como estaban los planes (dia, hora y orden) */
   function undoChanges(previous, title) {
-    applyChanges(previous, `deshizo el cambio de horario de "${title}"`);
+    applyChanges(previous, t('deshizo el cambio de horario de "{title}"', { title }));
   }
 
   function snapshot(list) {
@@ -621,7 +625,7 @@ export default function ItineraryView() {
     const isSameSlot = firstSlot.day === secondSlot.day && firstSlot.time === secondSlot.time;
     if (isSameSlot) {
       if (!hasManualOrder) {
-        toast(firstSlot.time ? 'Los dos planes ya tienen el mismo horario.' : 'Ponles hora a los planes para poder intercambiar su orden.');
+        toast(firstSlot.time ? t('Los dos planes ya tienen el mismo horario.') : t('Ponles hora a los planes para poder intercambiar su orden.'));
         return;
       }
       // Mismo dia y misma hora (o sin hora): se numeran los planes de ese hueco y se cambian de sitio los dos
@@ -634,8 +638,8 @@ export default function ItineraryView() {
         .filter((activity) => activity.sort_order !== orders.get(activity.id))
         .map((activity) => ({ id: activity.id, patch: { sort_order: orders.get(activity.id) } }));
       const previous = snapshot(timeless);
-      if (await applyChanges(changes, `cambió el orden de "${first.title}" y "${second.title}"`)) {
-        toast(`"${first.title}" y "${second.title}" cambiaron de orden.`, { action: { label: 'Deshacer', onClick: () => undoChanges(previous, first.title) } });
+      if (await applyChanges(changes, t('cambió el orden de "{first}" y "{second}"', { first: first.title, second: second.title }))) {
+        toast(t('"{first}" y "{second}" cambiaron de orden.', { first: first.title, second: second.title }), { action: { label: t('Deshacer'), onClick: () => undoChanges(previous, first.title) } });
       }
       return;
     }
@@ -644,10 +648,10 @@ export default function ItineraryView() {
       { id: first.id, patch: secondSlot },
       { id: second.id, patch: firstSlot }
     ];
-    if (await applyChanges(changes, `intercambió el horario de "${first.title}" y "${second.title}"`)) {
-      const where = secondSlot.day !== firstSlot.day ? ` del ${dayLabel(secondSlot.day)}` : '';
-      toast(`Intercambiados: "${first.title}" ahora va a las ${secondSlot.time || 'sin hora'}${where}.`, {
-        action: { label: 'Deshacer', onClick: () => undoChanges(previous, first.title) }
+    if (await applyChanges(changes, t('intercambió el horario de "{first}" y "{second}"', { first: first.title, second: second.title }))) {
+      const when = [secondSlot.day !== firstSlot.day ? dayLabel(secondSlot.day) : '', secondSlot.time ? formatTime(secondSlot.time) : t('sin hora')].filter(Boolean).join(', ');
+      toast(t('Intercambiados: "{title}" ahora va en: {when}.', { title: first.title, when }), {
+        action: { label: t('Deshacer'), onClick: () => undoChanges(previous, first.title) }
       });
     }
   }
@@ -659,11 +663,12 @@ export default function ItineraryView() {
     const clash = clashIn(day, activity.time, [activity.id]);
     const previous = snapshot([activity]);
     const patch = { day, ...(hasManualOrder ? { sort_order: null } : {}) };
-    if (await applyChanges([{ id: activity.id, patch }], `movió "${activity.title}" al ${dayLabel(day)}`)) {
-      const clashText = clash ? ` Ojo: coincide con «${clash.title}» a las ${activity.time}.` : '';
-      toast(`"${activity.title}" pasó al ${dayLabel(day)}${activity.time ? ` a las ${activity.time}` : ''}.${clashText}`, {
+    if (await applyChanges([{ id: activity.id, patch }], t('movió "{title}" a: {day}', { title: activity.title, day: dayLabel(day) }))) {
+      const clashText = clash ? ` ${t('Ojo: coincide con «{title}» ({time}).', { title: clash.title, time: formatTime(activity.time) })}` : '';
+      const when = [dayLabel(day), activity.time ? formatTime(activity.time) : ''].filter(Boolean).join(', ');
+      toast(`${t('"{title}" pasó a: {when}.', { title: activity.title, when })}${clashText}`, {
         isError: Boolean(clash),
-        action: { label: 'Deshacer', onClick: () => undoChanges(previous, activity.title) }
+        action: { label: t('Deshacer'), onClick: () => undoChanges(previous, activity.title) }
       });
     }
   }
@@ -703,10 +708,10 @@ export default function ItineraryView() {
     return (
       <>
         <div className="section__head">
-          <h3 className="day__date">{isLoose ? 'Ideas sueltas' : formatDay(currentDay)}</h3>
-          {canEdit ? <button className="btn btn--small" type="button" onClick={() => newActivityHandler(currentDay)}><Icon name="plus" size={16} /> Añadir a este día</button> : null}
+          <h3 className="day__date">{isLoose ? t('Ideas sueltas') : formatDay(currentDay)}</h3>
+          {canEdit ? <button className="btn btn--small" type="button" onClick={() => newActivityHandler(currentDay)}><Icon name="plus" size={16} /> {t('Añadir a este día')}</button> : null}
         </div>
-        {list.length ? activityList(list) : <p className="day__empty">Nada planeado todavía. ¡Añade algo o mira las votaciones!</p>}
+        {list.length ? activityList(list) : <p className="day__empty">{t('Nada planeado todavía. ¡Añade algo o mira las votaciones!')}</p>}
       </>
     );
   }
@@ -715,15 +720,15 @@ export default function ItineraryView() {
     const { main, sub } = bigDate(currentDay);
     return (
       <>
-        <section className="day-reel" aria-label="Días del viaje">
+        <section className="day-reel" aria-label={t('Días del viaje')}>
           <p className="day-reel__date" id="reelDate" aria-live="polite">{main}</p>
           <p className="day-reel__sub" id="reelSub">{sub}</p>
           <div className="day-reel__viewport">
-            <button className="day-reel__nav day-reel__nav--prev" type="button" aria-label="Día anterior" onClick={() => stepHandler(-1)}><Icon name="back" /></button>
+            <button className="day-reel__nav day-reel__nav--prev" type="button" aria-label={t('Día anterior')} onClick={() => stepHandler(-1)}><Icon name="back" /></button>
             <ul className="day-reel__track" id="reelTrack" ref={trackRef}>
               {keys.map((day, index) => <DayCard key={day} day={day} index={index} list={activitiesOf(day)} isActive={day === currentDay} coverUrl={trip.cover_url} onSelect={(value) => selectDay(value, { shouldScroll: true })} />)}
             </ul>
-            <button className="day-reel__nav day-reel__nav--next" type="button" aria-label="Día siguiente" onClick={() => stepHandler(1)}><Icon name="next" /></button>
+            <button className="day-reel__nav day-reel__nav--next" type="button" aria-label={t('Día siguiente')} onClick={() => stepHandler(1)}><Icon name="next" /></button>
           </div>
         </section>
         <section className="day-detail" id="dayDetail" aria-live="polite">{detailView()}</section>
@@ -740,7 +745,7 @@ export default function ItineraryView() {
               {keys.map((day, index) => (
                 <li key={day}>
                   <button className="chip chip--plain" type="button" onClick={() => document.getElementById(`dia-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                    {day === LOOSE_KEY ? 'Ideas' : `Día ${index + 1} · ${formatDay(day, { day: 'numeric', month: 'short' })}`}
+                    {day === LOOSE_KEY ? t('Ideas') : `${t('Día {n}', { n: index + 1 })} · ${formatDay(day, { day: 'numeric', month: 'short' })}`}
                   </button>
                 </li>
               ))}
@@ -754,12 +759,12 @@ export default function ItineraryView() {
             <DroppableDaySection day={day} key={day}>
               <header className="day__header">
                 <div>
-                  <span className="day__label">{isLoose ? 'Sin día asignado' : `Día ${index + 1}`}</span>
-                  <h3 className="day__date" id={`title-${day}`}>{isLoose ? 'Ideas sueltas' : formatDay(day)}</h3>
+                  <span className="day__label">{isLoose ? t('Sin día asignado') : t('Día {n}', { n: index + 1 })}</span>
+                  <h3 className="day__date" id={`title-${day}`}>{isLoose ? t('Ideas sueltas') : formatDay(day)}</h3>
                 </div>
-                {canEdit ? <button className="btn btn--small" type="button" onClick={() => newActivityHandler(day)}><Icon name="plus" size={16} /> Añadir</button> : null}
+                {canEdit ? <button className="btn btn--small" type="button" onClick={() => newActivityHandler(day)}><Icon name="plus" size={16} /> {t('Añadir')}</button> : null}
               </header>
-              {list.length ? activityList(list) : <p className="day__empty">Nada planeado todavía para este día.</p>}
+              {list.length ? activityList(list) : <p className="day__empty">{t('Nada planeado todavía para este día.')}</p>}
             </DroppableDaySection>
           );
         })}
@@ -768,26 +773,33 @@ export default function ItineraryView() {
   }
 
   const printDays = reelDays.concat(activitiesOf(LOOSE_KEY).length ? [LOOSE_KEY] : []);
+  // Las horas del plan son las del destino: se avisa cuando no coinciden con la hora del dispositivo
+  const zoneHours = zoneDifferenceHours(timeZone);
+  const zoneNote = zoneHours
+    ? t(zoneHours > 0 ? 'Las horas del plan son la hora local de {place} ({zone}): {hours} h más que tu hora.' : 'Las horas del plan son la hora local de {place} ({zone}): {hours} h menos que tu hora.',
+      { place: trip.destination || trip.name, zone: zoneLabel(timeZone), hours: formatHours(zoneHours) })
+    : '';
   return (
     <div id="itinerary">
       <div className="section__head no-print">
-        <h2>Itinerario</h2>
+        <h2>{t('Itinerario')}</h2>
         <div className="page-head__actions">
-          <div className="segmented segmented--compact" role="group" aria-label="Forma de ver los días">
+          <div className="segmented segmented--compact" role="group" aria-label={t('Forma de ver los días')}>
             {VIEW_MODES.map((item) => (
               <button key={item.key} className={`segmented__btn ${item.key === mode ? 'segmented__btn--active' : ''}`} type="button" aria-pressed={item.key === mode} onClick={() => modeHandler(item.key)}>
-                <Icon name={item.icon} size={16} /> {item.label}
+                <Icon name={item.icon} size={16} /> {t(item.label)}
               </button>
             ))}
           </div>
-          <button className="btn btn--small" type="button" onClick={() => window.print()}><Icon name="print" size={16} /> PDF</button>
-          {canEdit ? <button className="btn btn--primary btn--small" type="button" onClick={() => newActivityHandler('')}><Icon name="plus" size={16} /> Actividad</button> : null}
+          <button className="btn btn--small" type="button" onClick={() => window.print()}><Icon name="print" size={16} /> {t('PDF')}</button>
+          {canEdit ? <button className="btn btn--primary btn--small" type="button" onClick={() => newActivityHandler('')}><Icon name="plus" size={16} /> {t('Actividad')}</button> : null}
         </div>
       </div>
+      {zoneNote ? <p className="section__hint zone-note no-print"><Icon name="clock" size={14} /> {zoneNote}</p> : null}
       <DndContext
         sensors={sensors}
         collisionDetection={dropTarget}
-        accessibility={{ announcements: DRAG_ANNOUNCEMENTS(activities), screenReaderInstructions: DRAG_INSTRUCTIONS }}
+        accessibility={{ announcements: DRAG_ANNOUNCEMENTS(activities), screenReaderInstructions: dragInstructions() }}
         onDragStart={({ active }) => setDraggingId(active.id)}
         onDragCancel={() => setDraggingId(null)}
         onDragEnd={dragEndHandler}
@@ -797,7 +809,7 @@ export default function ItineraryView() {
           {draggingActivity ? (
             <div className="activity activity--overlay" aria-hidden="true">
               <div className="activity__body">
-                <span className="activity__time">{draggingActivity.time || '—'}</span>
+                <span className="activity__time">{formatTime(draggingActivity.time) || '—'}</span>
                 <div className="activity__info"><h4 className="activity__title">{draggingActivity.title}</h4></div>
               </div>
             </div>
@@ -810,8 +822,8 @@ export default function ItineraryView() {
           const list = activitiesOf(day);
           return (
             <section className="day" key={day}>
-              <h3 className="day__date">{day === LOOSE_KEY ? 'Ideas sueltas' : `Día ${index + 1} · ${formatDay(day)}`}</h3>
-              {list.length ? activityList(list, true) : <p className="day__empty">Día libre</p>}
+              <h3 className="day__date">{day === LOOSE_KEY ? t('Ideas sueltas') : `${t('Día {n}', { n: index + 1 })} · ${formatDay(day)}`}</h3>
+              {list.length ? activityList(list, true) : <p className="day__empty">{t('Día libre')}</p>}
             </section>
           );
         })}
