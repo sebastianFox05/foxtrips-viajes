@@ -1,17 +1,19 @@
 /* Pagina publica de solo lectura: itinerario y album, sin cuenta. */
 import { store } from '../lib/store/index.js';
 import { eachDay, formatDay, formatRange, sortActivities } from '../lib/utils.js';
+import { formatTime } from '../lib/locale.js';
 import Icon from '../components/Icon.jsx';
 import Picture from '../components/Picture.jsx';
 import useLoad from '../hooks/useLoad.js';
 import { useLightbox } from '../ui/LightboxContext.jsx';
+import { t } from '../lib/i18n/index.js';
 
 export default function PublicView({ token }) {
   const { openLightbox } = useLightbox();
   const { data, isLoading } = useLoad(() => store.getPublicTrip(token).catch(() => null), [token]);
   if (isLoading && data === undefined) return null;
   if (!data?.trip) {
-    return <div className="empty"><h1 className="empty__title">Este enlace ya no está disponible</h1><p className="empty__text">Puede que el organizador haya desactivado la página pública.</p></div>;
+    return <div className="empty"><h1 className="empty__title">{t('Este enlace ya no está disponible')}</h1><p className="empty__text">{t('Puede que el organizador haya desactivado la página pública.')}</p></div>;
   }
   const { trip } = data;
   const activities = sortActivities(data.activities || []);
@@ -32,22 +34,22 @@ export default function PublicView({ token }) {
           {trip.description ? <div className="glass"><p className="glass__text">{trip.description}</p></div> : null}
         </div>
       </header>
-      <p className="public-note badge"><Icon name="eye" size={14} /> Página de solo lectura</p>
+      <p className="public-note badge"><Icon name="eye" size={14} /> {t('Página de solo lectura')}</p>
       <section className="section" aria-labelledby="publicPlan">
-        <h2 id="publicPlan" className="card__title">Itinerario</h2>
+        <h2 id="publicPlan" className="card__title">{t('Itinerario')}</h2>
         {groups.map(({ day, index }) => {
           const list = day ? activities.filter((activity) => activity.day === day) : loose;
           return (
             <section className="day" key={day || 'sin-dia'}>
-              <header className="day__header"><div><span className="day__label">{day ? `Día ${index + 1}` : 'Sin día asignado'}</span><h3 className="day__date">{day ? formatDay(day) : 'Ideas sueltas'}</h3></div></header>
+              <header className="day__header"><div><span className="day__label">{day ? t('Día {n}', { n: index + 1 }) : t('Sin día asignado')}</span><h3 className="day__date">{day ? formatDay(day) : t('Ideas sueltas')}</h3></div></header>
               {list.length ? (
                 <ul className="day__list">
                   {list.map((activity) => (
                     <li key={activity.id}>
                       <article className="activity">
-                        {activity.image_url ? <figure className="activity__media"><Picture url={activity.image_url} alt={`Foto de ${activity.title}`} width={800} height={500} /></figure> : null}
+                        {activity.image_url ? <figure className="activity__media"><Picture url={activity.image_url} alt={t('Foto de {title}', { title: activity.title })} width={800} height={500} /></figure> : null}
                         <div className="activity__body">
-                          <span className="activity__time">{activity.time || '—'}</span>
+                          <span className="activity__time">{formatTime(activity.time) || '—'}</span>
                           <div className="activity__info">
                             <h4 className="activity__title">{activity.title}</h4>
                             {activity.place ? <p className="activity__place"><Icon name="pin" size={14} /> {activity.place}</p> : null}
@@ -58,19 +60,19 @@ export default function PublicView({ token }) {
                     </li>
                   ))}
                 </ul>
-              ) : <p className="day__empty">Día libre</p>}
+              ) : <p className="day__empty">{t('Día libre')}</p>}
             </section>
           );
         })}
       </section>
       {photos.length ? (
         <section className="section" aria-labelledby="publicAlbum">
-          <h2 id="publicAlbum" className="card__title">Álbum</h2>
+          <h2 id="publicAlbum" className="card__title">{t('Álbum')}</h2>
           <ul className="album">
             {photos.map((photo, index) => (
               <li key={photo.id || index} className={`album__item ${index % 5 === 0 || index % 5 === 3 ? 'album__item--tall' : ''}`}>
-                <button className="album__button" type="button" aria-label={`Ver foto ${index + 1}`} onClick={() => openLightbox(photos, index, { hasComments: false })}>
-                  <Picture url={photo.thumb_url || photo.url} alt={photo.caption || `Foto ${index + 1}`} width={480} height={480} />
+                <button className="album__button" type="button" aria-label={t('Ver foto {n}', { n: index + 1 })} onClick={() => openLightbox(photos, index, { hasComments: false })}>
+                  <Picture url={photo.thumb_url || photo.url} alt={photo.caption || t('Foto {n}', { n: index + 1 })} width={480} height={480} />
                   {photo.caption ? <span className="album__caption">{photo.caption}</span> : null}
                 </button>
               </li>

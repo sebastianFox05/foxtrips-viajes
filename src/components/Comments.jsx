@@ -8,6 +8,7 @@ import { store } from '../lib/store/index.js';
 import { timeAgo } from '../lib/utils.js';
 import { Avatar } from './Avatar.jsx';
 import { useUi } from '../ui/UiContext.jsx';
+import { t } from '../lib/i18n/index.js';
 
 export const COMMENTS_EVENT = 'foxtrips:comments';
 
@@ -78,10 +79,10 @@ export default function Comments({ tripId, targetType, targetId, headingLevel = 
     }
   }
 
-  if (!comments) return <p className="loading">Cargando…</p>;
+  if (!comments) return <p className="loading">{t('Cargando…')}</p>;
   return (
     <>
-      <Heading className="card__title">Comentarios ({comments.length})</Heading>
+      <Heading className="card__title">{t('Comentarios ({n})', { n: comments.length })}</Heading>
       {comments.length ? (
         <ul className="comments__list">
           {comments.map((comment) => (
@@ -92,7 +93,7 @@ export default function Comments({ tripId, targetType, targetId, headingLevel = 
                   <span className="comments__author">{comment.author_name}</span>
                   <span className="comments__date">{timeAgo(comment.created_at)}
                     {comment.author_id === store.user?.id ? (
-                      <> <button className="link-btn" type="button" aria-label="Borrar comentario" onClick={() => deleteHandler(comment.id)}>Borrar</button></>
+                      <> <button className="link-btn" type="button" aria-label={t('Borrar comentario')} onClick={() => deleteHandler(comment.id)}>{t('Borrar')}</button></>
                     ) : null}
                   </span>
                 </p>
@@ -101,11 +102,11 @@ export default function Comments({ tripId, targetType, targetId, headingLevel = 
             </li>
           ))}
         </ul>
-      ) : <p className="comments__empty">Aún no hay comentarios. ¡Escribe el primero!</p>}
+      ) : <p className="comments__empty">{t('Aún no hay comentarios. ¡Escribe el primero!')}</p>}
       <form className="form__inline" onSubmit={submitHandler}>
-        <label className="visually-hidden" htmlFor={fieldId}>Escribe un comentario</label>
-        <input className="form__input" id={fieldId} name="body" maxLength={1000} placeholder="Escribe un comentario…" required autoComplete="off" value={body} onChange={(event) => setBody(event.target.value)} />
-        <button className="btn btn--primary" type="submit">Enviar</button>
+        <label className="visually-hidden" htmlFor={fieldId}>{t('Escribe un comentario')}</label>
+        <input className="form__input" id={fieldId} name="body" maxLength={1000} placeholder={t('Escribe un comentario…')} required autoComplete="off" value={body} onChange={(event) => setBody(event.target.value)} />
+        <button className="btn btn--primary" type="submit">{t('Enviar')}</button>
       </form>
     </>
   );

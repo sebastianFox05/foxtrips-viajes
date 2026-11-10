@@ -6,6 +6,7 @@
  * - pulsar fuera de la caja o Escape cierra (y una confirmacion abierta responde "no").
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '../lib/i18n/index.js';
 
 const TOAST_MS = 3200;
 const TOAST_ACTION_MS = 10000;
@@ -47,7 +48,7 @@ function Modal({ modal, onRequestClose, onClosed }) {
       <div className="modal__box">
         <header className="modal__header">
           <h2 className="modal__title" id="modalTitle">{modal?.title || ''}</h2>
-          <button className="modal__close" type="button" aria-label="Cerrar ventana" onClick={onRequestClose}>×</button>
+          <button className="modal__close" type="button" aria-label={t('Cerrar ventana')} onClick={onRequestClose}>×</button>
         </header>
         <div className="modal__body" id="modalBody" ref={bodyRef}>{modal?.content || null}</div>
       </div>
@@ -60,7 +61,7 @@ function ConfirmBody({ message, confirmText, isDanger, onCancel, onConfirm }) {
     <>
       <p className="card__text">{message}</p>
       <div className="form__actions form__actions--top">
-        <button className="btn" type="button" onClick={onCancel}>Cancelar</button>
+        <button className="btn" type="button" onClick={onCancel}>{t('Cancelar')}</button>
         <button className={`btn ${isDanger ? 'btn--destructive' : 'btn--primary'}`} type="button" onClick={onConfirm}>{confirmText}</button>
       </div>
     </>
@@ -88,7 +89,7 @@ export function UiProvider({ children }) {
 
   const toastError = useCallback((error) => {
     console.error(error);
-    toast(error?.message || 'Algo salió mal. Inténtalo de nuevo.', { isError: true });
+    toast(error?.message || t('Algo salió mal. Inténtalo de nuevo.'), { isError: true });
   }, [toast]);
 
   const openModal = useCallback((title, content) => {
@@ -119,7 +120,7 @@ export function UiProvider({ children }) {
     if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
   }, []);
 
-  const confirm = useCallback((message, { confirmText = 'Eliminar', isDanger = true } = {}) => new Promise((resolve) => {
+  const confirm = useCallback((message, { confirmText = t('Eliminar'), isDanger = true } = {}) => new Promise((resolve) => {
     const cancel = () => closeModal();
     const accept = () => {
       const resolver = confirmRef.current;
@@ -127,7 +128,7 @@ export function UiProvider({ children }) {
       closeModal();
       resolver?.(true);
     };
-    openModal('¿Estás seguro?', <ConfirmBody message={message} confirmText={confirmText} isDanger={isDanger} onCancel={cancel} onConfirm={accept} />);
+    openModal(t('¿Estás seguro?'), <ConfirmBody message={message} confirmText={confirmText} isDanger={isDanger} onCancel={cancel} onConfirm={accept} />);
     confirmRef.current = resolve;
   }), [closeModal, openModal]);
 

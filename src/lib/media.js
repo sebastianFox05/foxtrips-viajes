@@ -5,6 +5,7 @@
 import { config } from './config.js';
 import { store } from './store/index.js';
 import { esc, uid } from './utils.js';
+import { t } from './i18n/index.js';
 
 const FULL_SIDE = 2048;
 const THUMB_SIDE = 640;
@@ -51,7 +52,7 @@ async function resize(bitmap, maxSide) {
 }
 
 export async function compressImage(file) {
-  if (!file.type.startsWith('image/')) throw new Error('El archivo no es una imagen.');
+  if (!file.type.startsWith('image/')) throw new Error(t('El archivo no es una imagen.'));
   const bitmap = await loadBitmap(file);
   const [full, thumb] = await Promise.all([resize(bitmap, FULL_SIDE), resize(bitmap, THUMB_SIDE)]);
   return { full, thumb };
@@ -70,7 +71,7 @@ async function sendToCloudinary(folder, blob) {
   body.append('folder', folder);
   const response = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudinaryCloudName}/image/upload`, { method: 'POST', body });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || 'No se pudo subir la foto a Cloudinary.');
+  if (!response.ok) throw new Error(data.error?.message || t('No se pudo subir la foto a Cloudinary.'));
   return data;
 }
 
@@ -126,7 +127,7 @@ export async function deleteTripFiles(tripId) {
 
 /* Recorte cuadrado centrado */
 async function squareImage(file, side) {
-  if (!file.type.startsWith('image/')) throw new Error('El archivo no es una imagen.');
+  if (!file.type.startsWith('image/')) throw new Error(t('El archivo no es una imagen.'));
   const bitmap = await loadBitmap(file);
   const crop = Math.min(bitmap.width, bitmap.height);
   const canvas = document.createElement('canvas');
@@ -141,7 +142,7 @@ function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.addEventListener('load', () => resolve(reader.result));
-    reader.addEventListener('error', () => reject(new Error('No se pudo leer la imagen.')));
+    reader.addEventListener('error', () => reject(new Error(t('No se pudo leer la imagen.'))));
     reader.readAsDataURL(blob);
   });
 }
@@ -157,7 +158,7 @@ export async function uploadAvatar(userId, file) {
     return { url: cloudinaryTransform(data.secure_url, 'q_auto,f_auto,w_256,h_256,c_fill'), publicId: data.public_id };
   }
   if (store.mode === 'local') return { url: await blobToDataUrl(blob), publicId: null };
-  throw new Error('Para subir una foto de perfil hace falta configurar Cloudinary.');
+  throw new Error(t('Para subir una foto de perfil hace falta configurar Cloudinary.'));
 }
 
 /* Borra de Cloudinary tus fotos de perfil anteriores: todas menos keepPublicId (sin el, todas) */

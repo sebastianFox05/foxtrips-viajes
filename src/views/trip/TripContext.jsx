@@ -6,7 +6,10 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { store } from '../../lib/store/index.js';
-import { debounce, registerAvatars } from '../../lib/utils.js';
+import { debounce, registerAvatars, today } from '../../lib/utils.js';
+import { destinationInfo, knownDestination } from '../../lib/destination.js';
+import { todayIn } from '../../lib/locale.js';
+import { t } from '../../lib/i18n/index.js';
 import { notifyComments } from '../../components/Comments.jsx';
 import { canEdit } from './sections.js';
 
@@ -22,13 +25,14 @@ function isTyping() {
 export function TripProvider({ tripId, children }) {
   const [state, setState] = useState({ trip: null, members: [], error: null, isLoading: true });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [destination, setDestination] = useState({});
   const busyRef = useRef(false);
   const pendingRef = useRef(false);
 
   const loadTrip = useCallback(async () => {
     try {
       const [trip, members] = await Promise.all([store.getTrip(tripId), store.listMembers(tripId).catch(() => [])]);
-      if (!trip) throw new Error('Este viaje no existe o no tienes acceso.');
+      if (!trip) throw new Error(t('Este viaje no existe o no tienes acceso.'));
       registerAvatars(members.map((member) => ({ id: member.user_id, name: member.name, avatar_url: member.avatar_url })));
       setState({ trip, members, error: null, isLoading: false });
     } catch (error) {
@@ -41,6 +45,18 @@ export function TripProvider({ tripId, children }) {
     setState({ trip: null, members: [], error: null, isLoading: true });
     loadTrip();
   }, [loadTrip]);
+
+  // Zona horaria y pais del destino: primero lo recordado, luego lo que diga la red
+  const tripLat = state.trip?.lat;
+  const tripLon = state.trip?.lon;
+  useEffect(() => {
+    let isCurrent = true;
+    setDestination(knownDestination(tripLat, tripLon));
+    destinationInfo(tripLat, tripLon).then((info) => isCurrent && setDestination(info)).catch(() => null);
+    return () => {
+      isCurrent = false;
+    };
+  }, [tripLat, tripLon]);
 
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
 
@@ -102,12 +118,16 @@ export function TripProvider({ tripId, children }) {
       role,
       canEdit: canEdit(role),
       isOwner: role === 'owner',
+      // Del destino: zona horaria (IANA), pais (dos letras) y la fecha de hoy alli
+      timeZone: destination.timeZone || '',
+      countryCode: destination.countryCode || '',
+      tripToday: (destination.timeZone && todayIn(destination.timeZone)) || today(),
       refreshKey,
       refresh,
       reloadTrip: loadTrip,
       setBusy
     };
-  }, [state, tripId, refreshKey, refresh, loadTrip, setBusy]);
+  }, [state, tripId, refreshKey, refresh, loadTrip, setBusy, destination]);
 
   return <TripContext.Provider value={{ ...value, error: state.error, isLoading: state.isLoading }}>{children}</TripContext.Provider>;
 }

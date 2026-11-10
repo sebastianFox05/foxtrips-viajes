@@ -4144,3 +4144,45 @@ body.is-welcome {
 .activity--conflict {
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-danger) 55%, transparent);
 }
+
+/* --------------------------------------------------------------------------
+   Idioma y region: hora del destino, aviso de zona horaria y selector de idioma
+   -------------------------------------------------------------------------- */
+.info-row__item--wide {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--color-surface-alt);
+}
+
+.info-row__item--wide .info-row__value {
+  white-space: normal;
+}
+
+.zone-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.auth-panel__language {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: var(--space-1);
+  color: #77777f;
+  font-size: 0.75rem;
+}
+
+.auth-panel__language select {
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.auth-panel__language option {
+  color: #141414;
+}

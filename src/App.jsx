@@ -18,6 +18,7 @@ import TripsView from './views/trips/TripsView.jsx';
 import { rememberInvite } from './views/auth/invite.js';
 import { hasSeenWelcome } from './views/welcome/welcomeState.js';
 import * as views from './views/index.js';
+import { t } from './lib/i18n/index.js';
 
 const TRIP_VIEWS = {
   resumen: views.SummaryView,
@@ -62,17 +63,17 @@ function resolveRoute(pathname, user) {
 function Header({ user, routeName }) {
   const activeRoute = routeName === 'trip' ? 'home' : routeName;
   const links = [
-    { key: 'home', href: '#/', short: 'Viajes', long: 'Mis viajes' },
-    { key: 'planes', href: '#/planes', short: 'Planes', long: 'Planes recomendados' }
+    { key: 'home', href: '#/', short: t('Viajes'), long: t('Mis viajes') },
+    { key: 'planes', href: '#/planes', short: t('Planes'), long: t('Planes recomendados') }
   ];
   return (
     <header className="site-header">
       <div className="site-header__inner">
-        <a className="site-header__brand" href="#/" aria-label="FoxTrips, ir a mis viajes">
+        <a className="site-header__brand" href="#/" aria-label={t('FoxTrips, ir a mis viajes')}>
           <img className="site-header__logo" src={`${import.meta.env.BASE_URL}assets/img/logo.png`} alt="" width="32" height="32" />
           <span className="site-header__brand-text">FoxTrips</span>
         </a>
-        <nav className="site-header__nav" id="siteNav" aria-label="Principal" hidden={!user}>
+        <nav className="site-header__nav" id="siteNav" aria-label={t('Principal')} hidden={!user}>
           {links.map((link) => (
             <a key={link.key} className={`site-header__link${link.key === activeRoute ? ' site-header__link--active' : ''}`} href={link.href} data-route={link.key} aria-current={link.key === activeRoute ? 'page' : undefined}>
               <span className="site-header__label site-header__label--short">{link.short}</span>
@@ -84,7 +85,7 @@ function Header({ user, routeName }) {
           {user ? (
             <>
               <span className="site-header__name">{user.name}</span>
-              <a href="#/perfil" aria-label="Tu perfil"><Avatar name={user.name} userId={user.id} /></a>
+              <a href="#/perfil" aria-label={t('Tu perfil')}><Avatar name={user.name} userId={user.id} /></a>
             </>
           ) : null}
         </div>
@@ -101,13 +102,13 @@ function TripBottomNav({ tripId, sectionKey }) {
       {links.map((section) => (
         <li key={section.key}>
           <a className={`bottom-nav__link ${section.key === sectionKey ? 'bottom-nav__link--active' : ''}`} href={`#/viaje/${tripId}/${section.key}`} aria-current={section.key === sectionKey ? 'page' : undefined}>
-            <Icon name={section.icon} size={22} /><span>{section.label}</span>
+            <Icon name={section.icon} size={22} /><span>{t(section.label)}</span>
           </a>
         </li>
       ))}
       <li>
         <a className={`bottom-nav__link ${isMore ? 'bottom-nav__link--active' : ''}`} href={`#/viaje/${tripId}/mas`} aria-current={isMore ? 'page' : undefined}>
-          <Icon name="grid" size={22} /><span>Más</span>
+          <Icon name="grid" size={22} /><span>{t('Más')}</span>
         </a>
       </li>
     </ul>
@@ -118,10 +119,10 @@ function HomeBottomNav({ routeKey }) {
   const { openNewTrip } = useTripActions();
   return (
     <ul className="bottom-nav__list">
-      <li><a className={`bottom-nav__link ${routeKey === 'home' ? 'bottom-nav__link--active' : ''}`} href="#/"><Icon name="home" size={22} /><span>Viajes</span></a></li>
-      <li><button className="bottom-nav__link" type="button" onClick={openNewTrip}><Icon name="plus" size={22} /><span>Nuevo</span></button></li>
-      <li><a className={`bottom-nav__link ${routeKey === 'planes' ? 'bottom-nav__link--active' : ''}`} href="#/planes"><Icon name="star" size={22} /><span>Planes</span></a></li>
-      <li><a className={`bottom-nav__link ${routeKey === 'perfil' ? 'bottom-nav__link--active' : ''}`} href="#/perfil"><Icon name="user" size={22} /><span>Perfil</span></a></li>
+      <li><a className={`bottom-nav__link ${routeKey === 'home' ? 'bottom-nav__link--active' : ''}`} href="#/"><Icon name="home" size={22} /><span>{t('Viajes')}</span></a></li>
+      <li><button className="bottom-nav__link" type="button" onClick={openNewTrip}><Icon name="plus" size={22} /><span>{t('Nuevo')}</span></button></li>
+      <li><a className={`bottom-nav__link ${routeKey === 'planes' ? 'bottom-nav__link--active' : ''}`} href="#/planes"><Icon name="star" size={22} /><span>{t('Planes')}</span></a></li>
+      <li><a className={`bottom-nav__link ${routeKey === 'perfil' ? 'bottom-nav__link--active' : ''}`} href="#/perfil"><Icon name="user" size={22} /><span>{t('Perfil')}</span></a></li>
     </ul>
   );
 }
@@ -176,7 +177,7 @@ export default function App() {
     // La bienvenida ocupa justo la pantalla: la pagina de detras no debe poder desplazarse
     classList.toggle('is-welcome', route.name === 'welcome');
     document.documentElement.classList.toggle('is-welcome', route.name === 'welcome');
-    if (route.name !== 'trip') document.title = 'FoxTrips · Viajes en grupo';
+    if (route.name !== 'trip') document.title = t('FoxTrips · Viajes en grupo');
   }, [hasBottomNav, route.name, isAuthScreen]);
 
   function skipLinkHandler(event) {
@@ -187,18 +188,18 @@ export default function App() {
   const isBannerHidden = store.mode !== 'local' || route.name === 'public' || isAuthScreen;
   return (
     <>
-      <a className="skip-link" href="#app" onClick={skipLinkHandler}>Saltar al contenido</a>
+      <a className="skip-link" href="#app" onClick={skipLinkHandler}>{t('Saltar al contenido')}</a>
       <Header user={user} routeName={route.name} />
-      <p className="banner" id="modeBanner" hidden={isBannerHidden}>Modo local · los datos solo se guardan en este navegador.</p>
+      <p className="banner" id="modeBanner" hidden={isBannerHidden}>{t('Modo local · los datos solo se guardan en este navegador.')}</p>
       <main className="main" id="app" tabIndex={-1} ref={mainRef}>
-        {isReady ? <Content route={route} /> : <p className="loading">Cargando…</p>}
+        {isReady ? <Content route={route} /> : <p className="loading">{t('Cargando…')}</p>}
       </main>
-      <nav className="bottom-nav" id="bottomNav" aria-label="Navegación inferior" hidden={!hasBottomNav}>
+      <nav className="bottom-nav" id="bottomNav" aria-label={t('Navegación inferior')} hidden={!hasBottomNav}>
         {hasBottomNav && route.name === 'trip' ? <TripBottomNav tripId={route.params.id} sectionKey={route.params.section} /> : null}
         {hasBottomNav && hasHomeNav ? <HomeBottomNav routeKey={route.name} /> : null}
       </nav>
       <footer className="site-footer">
-        <p className="site-footer__text">FoxTrips · Hecho para viajar en grupo. Mapas © colaboradores de OpenStreetMap.</p>
+        <p className="site-footer__text">{t('FoxTrips · Hecho para viajar en grupo. Mapas © colaboradores de OpenStreetMap.')}</p>
       </footer>
     </>
   );

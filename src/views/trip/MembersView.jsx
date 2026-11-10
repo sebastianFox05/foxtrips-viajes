@@ -7,6 +7,7 @@ import { useUi } from '../../ui/UiContext.jsx';
 import { roleLabel } from './sections.js';
 import { useTrip } from './TripContext.jsx';
 import { useState } from 'react';
+import { t, tn } from '../../lib/i18n/index.js';
 
 // El ultimo enlace creado se muestra al volver a la pestaña (mismo viaje)
 let lastInvite = null;
@@ -26,9 +27,9 @@ export default function MembersView() {
   async function copy(text) {
     try {
       await navigator.clipboard.writeText(text);
-      toast('Enlace copiado');
+      toast(t('Enlace copiado'));
     } catch {
-      toast('Copia el enlace manualmente');
+      toast(t('Copia el enlace manualmente'));
     }
   }
 
@@ -38,7 +39,7 @@ export default function MembersView() {
       lastInvite = { tripId, role, url: `${baseUrl()}#/unirse/${code}` };
       setInvite(lastInvite);
       await copy(lastInvite.url);
-      if (navigator.share) navigator.share({ title: `Únete a ${trip.name}`, url: lastInvite.url }).catch(() => null);
+      if (navigator.share) navigator.share({ title: t('Únete a {name}', { name: trip.name }), url: lastInvite.url }).catch(() => null);
     } catch (error) {
       toastError(error);
     }
@@ -47,7 +48,7 @@ export default function MembersView() {
   async function changeRoleHandler(userId, role) {
     try {
       await store.setMemberRole(tripId, userId, role);
-      toast('Permisos actualizados');
+      toast(t('Permisos actualizados'));
     } catch (error) {
       toastError(error);
     }
@@ -56,13 +57,13 @@ export default function MembersView() {
   }
 
   async function revokeInvitesHandler() {
-    const isConfirmed = await confirm('Los enlaces de invitación que hayas compartido dejarán de funcionar. Quien ya está en el grupo sigue dentro.', { confirmText: 'Revocar enlaces' });
+    const isConfirmed = await confirm(t('Los enlaces de invitación que hayas compartido dejarán de funcionar. Quien ya está en el grupo sigue dentro.'), { confirmText: t('Revocar enlaces') });
     if (!isConfirmed) return;
     try {
       await store.revokeInvites(tripId);
       lastInvite = null;
       setInvite(null);
-      toast('Enlaces revocados');
+      toast(t('Enlaces revocados'));
     } catch (error) {
       toastError(error);
     }
@@ -70,7 +71,7 @@ export default function MembersView() {
 
   async function removeMemberHandler(member) {
     const isSelf = member.user_id === store.user.id;
-    const isConfirmed = await confirm(isSelf ? 'Dejarás de ver este viaje.' : `${member.name} ya no podrá ver el viaje.`, { confirmText: isSelf ? 'Salir del viaje' : 'Quitar' });
+    const isConfirmed = await confirm(isSelf ? t('Dejarás de ver este viaje.') : t('{name} ya no podrá ver el viaje.', { name: member.name }), { confirmText: isSelf ? t('Salir del viaje') : t('Quitar') });
     if (!isConfirmed) return;
     try {
       await store.removeMember(tripId, member.user_id);
@@ -92,10 +93,10 @@ export default function MembersView() {
 
   return (
     <>
-      <div className="section__head"><h2>Grupo</h2><span className="section__hint">{members.length} viajeros</span></div>
+      <div className="section__head"><h2>{t('Grupo')}</h2><span className="section__hint">{tn(members.length, '{n} viajero', '{n} viajeros')}</span></div>
       <div className="grid grid--2">
         <section className="card" aria-labelledby="membersTitle">
-          <h3 className="card__title" id="membersTitle">Quién viaja</h3>
+          <h3 className="card__title" id="membersTitle">{t('Quién viaja')}</h3>
           <ul className="rows">
             {members.map((member) => {
               const isMe = member.user_id === store.user.id;
@@ -104,19 +105,19 @@ export default function MembersView() {
                 <li className="row" key={member.user_id}>
                   <Avatar name={member.name} userId={member.user_id} extraClass="avatar--lg" />
                   <div className="row__body">
-                    <p className="row__title">{member.name}{isMe ? ' (tú)' : ''}</p>
+                    <p className="row__title">{member.name}{isMe ? ` ${t('(tú)')}` : ''}</p>
                     <p className="row__meta">{roleLabel(member.role)}</p>
                   </div>
                   <div className="row__actions">
                     {isOwner && !isMe ? (
                       <>
-                        <label className="visually-hidden" htmlFor={`role-${member.user_id}`}>Rol de {member.name}</label>
+                        <label className="visually-hidden" htmlFor={`role-${member.user_id}`}>{t('Rol de {name}', { name: member.name })}</label>
                         <select className="form__select form__select--compact" id={`role-${member.user_id}`} value={member.role} onChange={(event) => changeRoleHandler(member.user_id, event.target.value)}>
                           {['owner', 'editor', 'viewer'].map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
                         </select>
                       </>
                     ) : null}
-                    {(isOwner && !isMe) || (isMe && !isLastOwner) ? <button className="btn btn--ghost btn--small" type="button" onClick={() => removeMemberHandler(member)}>{isMe ? 'Salir' : 'Quitar'}</button> : null}
+                    {(isOwner && !isMe) || (isMe && !isLastOwner) ? <button className="btn btn--ghost btn--small" type="button" onClick={() => removeMemberHandler(member)}>{isMe ? t('Salir') : t('Quitar')}</button> : null}
                   </div>
                 </li>
               );
@@ -126,37 +127,37 @@ export default function MembersView() {
         <div className="grid">
           {canEdit ? (
             <section className="card" aria-labelledby="inviteTitle">
-              <h3 className="card__title" id="inviteTitle"><Icon name="link" size={18} /> Invitar por enlace</h3>
-              <p className="card__text">Los <strong>editores</strong> pueden cambiar el plan y subir fotos. Los <strong>lectores</strong> solo ven, votan y comentan.</p>
+              <h3 className="card__title" id="inviteTitle"><Icon name="link" size={18} /> {t('Invitar por enlace')}</h3>
+              <p className="card__text">{t('Los editores pueden cambiar el plan y subir fotos. Los lectores solo ven, votan y comentan.')}</p>
               <div className="page-head__actions page-head__actions--top">
-                <button className="btn btn--primary btn--small" type="button" onClick={() => createInviteHandler('editor')}>Enlace de editor</button>
-                <button className="btn btn--small" type="button" onClick={() => createInviteHandler('viewer')}>Enlace de lector</button>
+                <button className="btn btn--primary btn--small" type="button" onClick={() => createInviteHandler('editor')}>{t('Enlace de editor')}</button>
+                <button className="btn btn--small" type="button" onClick={() => createInviteHandler('viewer')}>{t('Enlace de lector')}</button>
               </div>
               {invite ? (
                 <div className="invite">
-                  <p className="form__help">Último enlace ({roleLabel(invite.role).toLowerCase()}, caduca en 14 días):</p>
+                  <p className="form__help">{t('Último enlace ({role}, caduca en 14 días):', { role: roleLabel(invite.role).toLowerCase() })}</p>
                   <p className="invite__link">{invite.url}</p>
-                  <button className="btn btn--small" type="button" onClick={() => copy(invite.url)}>Copiar de nuevo</button>
+                  <button className="btn btn--small" type="button" onClick={() => copy(invite.url)}>{t('Copiar de nuevo')}</button>
                 </div>
               ) : null}
-              {isOwner ? <button className="link-btn btn--top" type="button" onClick={revokeInvitesHandler}><Icon name="trash" size={14} /> Revocar todos los enlaces</button> : null}
-              {store.mode === 'local' ? <p className="form__help form__help--top">Modo local: el enlace solo funciona en este navegador (prueba a entrar con otro nombre). Con Supabase funciona en cualquier dispositivo.</p> : null}
+              {isOwner ? <button className="link-btn btn--top" type="button" onClick={revokeInvitesHandler}><Icon name="trash" size={14} /> {t('Revocar todos los enlaces')}</button> : null}
+              {store.mode === 'local' ? <p className="form__help form__help--top">{t('Modo local: el enlace solo funciona en este navegador (prueba a entrar con otro nombre). Con Supabase funciona en cualquier dispositivo.')}</p> : null}
             </section>
           ) : null}
           {isOwner ? (
             <section className="card" aria-labelledby="publicTitle">
-              <h3 className="card__title" id="publicTitle"><Icon name="share" size={18} /> Página pública</h3>
-              <p className="card__text">Una página de solo lectura con el itinerario y el álbum, sin necesidad de cuenta.</p>
+              <h3 className="card__title" id="publicTitle"><Icon name="share" size={18} /> {t('Página pública')}</h3>
+              <p className="card__text">{t('Una página de solo lectura con el itinerario y el álbum, sin necesidad de cuenta.')}</p>
               {publicUrl ? (
                 <div className="invite">
                   <p className="invite__link">{publicUrl}</p>
                   <div className="page-head__actions">
-                    <button className="btn btn--small" type="button" onClick={() => copy(publicUrl)}>Copiar</button>
-                    <a className="btn btn--small" href={publicUrl} target="_blank" rel="noopener noreferrer">Ver</a>
+                    <button className="btn btn--small" type="button" onClick={() => copy(publicUrl)}>{t('Copiar')}</button>
+                    <a className="btn btn--small" href={publicUrl} target="_blank" rel="noopener noreferrer">{t('Ver')}</a>
                   </div>
                 </div>
               ) : null}
-              <button className={`btn btn--small btn--top ${publicUrl ? 'btn--danger' : 'btn--primary'}`} type="button" onClick={togglePublicHandler}>{publicUrl ? 'Desactivar página pública' : 'Activar página pública'}</button>
+              <button className={`btn btn--small btn--top ${publicUrl ? 'btn--danger' : 'btn--primary'}`} type="button" onClick={togglePublicHandler}>{publicUrl ? t('Desactivar página pública') : t('Activar página pública')}</button>
             </section>
           ) : null}
         </div>

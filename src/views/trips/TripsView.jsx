@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { store } from '../../lib/store/index.js';
-import { CITY_CODES, normalize } from '../../lib/places.js';
+import { CITY_CODES, cityNames, normalize } from '../../lib/places.js';
 import { registerSuggestions } from '../../lib/suggestions.js';
 import { daysBetween, formatRange, registerAvatars, tripStatus } from '../../lib/utils.js';
 import { createDemoTrip } from '../../lib/demo.js';
@@ -15,12 +15,13 @@ import useLoad from '../../hooks/useLoad.js';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useSession } from '../../session/SessionContext.jsx';
 import { useTripActions } from './TripForm.jsx';
+import { m, t, tn } from '../../lib/i18n/index.js';
 
 const FILTERS = [
-  { key: 'all', label: 'Todos', icon: 'compass' },
-  { key: 'upcoming', label: 'Próximos', icon: 'calendar' },
-  { key: 'ongoing', label: 'En curso', icon: 'pin' },
-  { key: 'past', label: 'Pasados', icon: 'clock' }
+  { key: 'all', label: m('Todos'), icon: 'compass' },
+  { key: 'upcoming', label: m('Próximos'), icon: 'calendar' },
+  { key: 'ongoing', label: m('En curso'), icon: 'pin' },
+  { key: 'past', label: m('Pasados'), icon: 'clock' }
 ];
 
 // Se recuerdan al volver al inicio (como en la version anterior)
@@ -36,7 +37,7 @@ function tripMatches(trip, query) {
   if (haystack.includes(text)) return true;
   const code = text.replace(/[\s.]/g, '').toUpperCase();
   const city = CITY_CODES.find((entry) => entry.codes.includes(code));
-  return Boolean(city && haystack.includes(normalize(city.name).split(' ')[0]));
+  return Boolean(city && cityNames(city).some((name) => haystack.includes(normalize(name).split(' ')[0])));
 }
 
 function tripSuggestions(query) {
@@ -49,7 +50,7 @@ function tripSuggestions(query) {
   }));
 }
 
-registerSuggestions('trip', tripSuggestions, { minLength: 1, label: 'Viajes sugeridos' });
+registerSuggestions('trip', tripSuggestions, { minLength: 1, label: m('Viajes sugeridos') });
 
 async function loadTrips() {
   const list = (await store.listTrips()).sort((first, second) => (first.start_date || '').localeCompare(second.start_date || ''));
@@ -70,10 +71,10 @@ function TripCard({ trip, position, people }) {
       <article className={`photo-card ${position === 0 ? 'photo-card--tall' : ''}`}>
         {trip.cover_url ? <Picture url={trip.cover_url} className="photo-card__media" isLazy={position > 1} width={900} height={600} /> : null}
         <div className="photo-card__overlay">
-          <p className="photo-card__kicker">{formatRange(trip.start_date, trip.end_date)}{days ? ` · ${days} días` : ''}</p>
+          <p className="photo-card__kicker">{formatRange(trip.start_date, trip.end_date)}{days ? ` · ${tn(days, '{n} día', '{n} días')}` : ''}</p>
           <h3 className="photo-card__title"><a className="photo-card__link" href={`#/viaje/${trip.id}`}>{trip.name}</a></h3>
           <div className="photo-card__footer">
-            <span className="photo-card__place"><Icon name="pin" size={16} /> {trip.destination || 'Destino por decidir'}</span>
+            <span className="photo-card__place"><Icon name="pin" size={16} /> {trip.destination || t('Destino por decidir')}</span>
             <AvatarStack people={people} />
           </div>
         </div>
@@ -110,7 +111,7 @@ export default function TripsView() {
     try {
       await runDemo(async () => {
         const id = await createDemoTrip();
-        toast('Viaje de ejemplo creado');
+        toast(t('Viaje de ejemplo creado'));
         navigate(`/viaje/${id}`);
       });
     } catch (demoError) {
@@ -118,7 +119,7 @@ export default function TripsView() {
     }
   }
 
-  if (!data) return error ? null : <p className="loading">Cargando…</p>;
+  if (!data) return error ? null : <p className="loading">{t('Cargando…')}</p>;
   const firstName = user.name.split(' ')[0];
 
   let list;
@@ -126,16 +127,16 @@ export default function TripsView() {
     list = (
       <div className="empty">
         <span className="empty__icon"><Icon name="compass" size={28} /></span>
-        <h3 className="empty__title">Tu primer viaje empieza aquí</h3>
-        <p className="empty__text">Crea un viaje e invita a tu grupo para planearlo juntos.</p>
+        <h3 className="empty__title">{t('Tu primer viaje empieza aquí')}</h3>
+        <p className="empty__text">{t('Crea un viaje e invita a tu grupo para planearlo juntos.')}</p>
         <div className="page-head__actions page-head__actions--center">
-          <button className="btn btn--primary" type="button" onClick={openNewTrip}><Icon name="plus" /> Crear viaje</button>
-          <button className="btn" type="button" onClick={demoHandler} disabled={isDemoBusy}>{isDemoBusy ? 'Guardando…' : <><Icon name="star" size={16} /> Ver ejemplo: Nueva York</>}</button>
+          <button className="btn btn--primary" type="button" onClick={openNewTrip}><Icon name="plus" /> {t('Crear viaje')}</button>
+          <button className="btn" type="button" onClick={demoHandler} disabled={isDemoBusy}>{isDemoBusy ? t('Guardando…') : <><Icon name="star" size={16} /> {t('Ver ejemplo: Nueva York')}</>}</button>
         </div>
       </div>
     );
   } else if (!visible.length) {
-    list = <p className="empty">No hay viajes con ese filtro.</p>;
+    list = <p className="empty">{t('No hay viajes con ese filtro.')}</p>;
   } else {
     list = <ul className="trip-grid">{visible.map((trip, position) => <TripCard key={trip.id} trip={trip} position={position} people={data.membersByTrip[trip.id] || []} />)}</ul>;
   }
@@ -144,34 +145,34 @@ export default function TripsView() {
     <>
       <section className="home-head">
         <div>
-          <p className="home-head__hello">Hola, {firstName} 👋</p>
-          <h1 className="home-head__title">¿A dónde vamos?</h1>
+          <p className="home-head__hello">{t('Hola, {name}', { name: firstName })} 👋</p>
+          <h1 className="home-head__title">{t('¿A dónde vamos?')}</h1>
         </div>
       </section>
       <label className="search suggest-host">
         <Icon name="search" />
-        <span className="visually-hidden">Buscar viaje</span>
+        <span className="visually-hidden">{t('Buscar viaje')}</span>
         <SuggestInput
           id="tripSearch"
           className="search__input"
           kind="trip"
           type="search"
-          placeholder="Buscar viaje, destino o código (NYC, CTG…)"
+          placeholder={t('Buscar viaje, destino o código (NYC, CTG…)')}
           defaultValue={searchText}
           onValueChange={(value) => setSearchText(value.trim())}
         />
       </label>
       <section className="section" aria-labelledby="tripsTitle">
         <div className="section__head">
-          <h2 id="tripsTitle">Tus viajes</h2>
-          <button className="link-btn" type="button" onClick={openNewTrip}><Icon name="plus" size={16} /> Nuevo viaje</button>
+          <h2 id="tripsTitle">{t('Tus viajes')}</h2>
+          <button className="link-btn" type="button" onClick={openNewTrip}><Icon name="plus" size={16} /> {t('Nuevo viaje')}</button>
         </div>
         <Scroller>
           <ul className="chips" id="tripChips">
             {FILTERS.map((item) => (
               <li key={item.key}>
                 <button className={`chip ${item.key === filter ? 'chip--active' : ''}`} type="button" aria-pressed={item.key === filter} onClick={() => setFilter(item.key)}>
-                  <span className="chip__icon"><Icon name={item.icon} size={18} /></span>{item.label}
+                  <span className="chip__icon"><Icon name={item.icon} size={18} /></span>{t(item.label)}
                 </button>
               </li>
             ))}
@@ -179,7 +180,7 @@ export default function TripsView() {
         </Scroller>
         <div id="tripList">{list}</div>
         {trips.length ? (
-          <p className="section__hint section__hint--center">¿Quieres ver todo lo que puede hacer FoxTrips? <button className="link-btn" type="button" onClick={demoHandler} disabled={isDemoBusy}>{isDemoBusy ? 'Guardando…' : 'Crear el viaje de ejemplo a Nueva York'}</button></p>
+          <p className="section__hint section__hint--center">{t('¿Quieres ver todo lo que puede hacer FoxTrips?')} <button className="link-btn" type="button" onClick={demoHandler} disabled={isDemoBusy}>{isDemoBusy ? t('Guardando…') : t('Crear el viaje de ejemplo a Nueva York')}</button></p>
         ) : null}
       </section>
     </>

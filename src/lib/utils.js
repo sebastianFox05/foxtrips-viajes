@@ -1,9 +1,9 @@
 /* Utilidades compartidas: escape de HTML, fechas, formato y pequeños ayudantes. */
+import { t, tn } from './i18n/index.js';
+import { clockOptions, intlLocale } from './locale.js';
 
-const LOCALE = 'es';
 const DAY_MS = 86400000;
 const AVATAR_HUES = [12, 28, 160, 200, 260, 320, 45, 100];
-const CURRENCY_BY_REGION = { CO: 'COP', ES: 'EUR', MX: 'MXN', AR: 'ARS', CL: 'CLP', PE: 'PEN', US: 'USD', BR: 'BRL', UY: 'UYU', EC: 'USD' };
 
 export function esc(value) {
   return String(value ?? '')
@@ -67,46 +67,52 @@ export function daysBetween(fromDay, toDayValue) {
 }
 
 export function formatDay(day, options = { weekday: 'long', day: 'numeric', month: 'long' }) {
-  return parseDay(day).toLocaleDateString(LOCALE, options);
+  const text = parseDay(day).toLocaleDateString(intlLocale(), options);
+  // Fechas cortas compactas: "1 dic" en vez de "1 de dic" (asi salen en algunas regiones)
+  return options.month === 'short' ? text.replace(/ de /g, ' ') : text;
+}
+
+/* Dia de la semana y numero, en ese orden en todos los idiomas: "martes 1", "Tuesday 1", "Mon 9" */
+export function formatWeekday(day, width = 'long') {
+  return `${formatDay(day, { weekday: width })} ${parseDay(day).getDate()}`;
 }
 
 export function formatShort(day) {
-  return parseDay(day).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
+  return formatDay(day, { day: 'numeric', month: 'short' });
 }
 
 export function formatRange(start, end) {
-  if (!start) return 'Sin fechas';
+  if (!start) return t('Sin fechas');
   if (!end || start === end) return formatShort(start);
   return `${formatShort(start)} – ${formatShort(end)}`;
 }
 
 export function formatDateTime(iso) {
-  return new Date(iso).toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(intlLocale(), { day: 'numeric', month: 'short', ...clockOptions() });
 }
 
 export function timeAgo(iso) {
   const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  const formatter = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
-  if (seconds < 60) return 'ahora';
+  const formatter = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' });
+  if (seconds < 60) return t('ahora');
   if (seconds < 3600) return formatter.format(-Math.round(seconds / 60), 'minute');
   if (seconds < 86400) return formatter.format(-Math.round(seconds / 3600), 'hour');
   if (seconds < 604800) return formatter.format(-Math.round(seconds / 86400), 'day');
   return formatDateTime(iso);
 }
 
-/* Estado del viaje respecto a hoy */
-export function tripStatus(trip) {
-  const now = today();
-  if (!trip.start_date) return { key: 'draft', label: 'Sin fechas' };
+/* Estado del viaje respecto a hoy (now: la fecha de hoy en el destino, si se conoce su zona horaria) */
+export function tripStatus(trip, now = today()) {
+  if (!trip.start_date) return { key: 'draft', label: t('Sin fechas') };
   const end = trip.end_date || trip.start_date;
   if (now < trip.start_date) {
     const days = daysBetween(now, trip.start_date);
-    return { key: 'upcoming', label: days === 1 ? 'Mañana' : `Faltan ${days} días`, days };
+    return { key: 'upcoming', label: days === 1 ? t('Mañana') : tn(days, 'Falta {n} día', 'Faltan {n} días'), days };
   }
   if (now <= end) {
-    return { key: 'ongoing', label: `Día ${daysBetween(trip.start_date, now) + 1} del viaje` };
+    return { key: 'ongoing', label: t('Día {n} del viaje', { n: daysBetween(trip.start_date, now) + 1 }) };
   }
-  return { key: 'past', label: 'Terminado' };
+  return { key: 'past', label: t('Terminado') };
 }
 
 /* ---- Personas ---- */
@@ -171,14 +177,9 @@ export function avatarStackHtml(people, max = 3) {
 
 /* ---- Varios ---- */
 
-export function defaultCurrency() {
-  const region = (navigator.language.split('-')[1] || '').toUpperCase();
-  return CURRENCY_BY_REGION[region] || 'USD';
-}
-
 export function formatMoney(amount, currency) {
   try {
-    return new Intl.NumberFormat(LOCALE, { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
   } catch {
     return `${amount.toFixed(2)} ${currency}`;
   }

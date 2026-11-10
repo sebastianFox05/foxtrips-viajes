@@ -1,6 +1,7 @@
 /* Imagen animada del acceso: tarjeta con fotos que cambian con zoom lento y halo de color detras. */
 import { useEffect, useState } from 'react';
 import { photoSources } from '../welcome/welcomeState.js';
+import { t } from '../../lib/i18n/index.js';
 
 const VISUAL_PHOTOS = ['santorini', 'lake', 'balloons', 'road', 'machuPicchu'];
 const VISUAL_INTERVAL_MS = 7000;
@@ -41,10 +42,10 @@ export default function AuthVisual() {
         <figcaption className="auth-visual__brand">
           <span className="auth-visual__logo">
             <img src={`${import.meta.env.BASE_URL}assets/img/logo.png`} alt="" width="30" height="30" />
-            FoxTrips <span className="auth-visual__badge">Viajes</span>
+            FoxTrips <span className="auth-visual__badge">{t('Viajes')}</span>
           </span>
-          <span className="auth-visual__tagline">Planead, votad y guardad cada recuerdo con tu gente.</span>
-          <span className="auth-visual__credit" id="authCredit">Foto: {active.credit}</span>
+          <span className="auth-visual__tagline">{t('Planead, votad y guardad cada recuerdo con tu gente.')}</span>
+          <span className="auth-visual__credit" id="authCredit">{t('Foto: {credit}', { credit: active.credit })}</span>
         </figcaption>
       </figure>
     </div>

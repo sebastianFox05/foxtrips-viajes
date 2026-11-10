@@ -5,29 +5,30 @@
  * - Cualquier otra zona: se buscan en Wikidata los lugares turisticos cercanos y se ordenan por popularidad
  *   (en cuantas Wikipedias del mundo aparecen).
  */
+import { getLanguage, m, t } from './i18n/index.js';
 
-const WIKI_API_URL = 'https://es.wikipedia.org/w/api.php';
+const wikiApiUrl = (lang) => `https://${lang}.wikipedia.org/w/api.php`;
 const SPARQL_URL = 'https://query.wikidata.org/sparql?format=json&query=';
 const CACHE_PREFIX = 'foxtrips:reco:';
 const CACHE_TTL = 30 * 86400000;
 const NEAR_KM = 45;
 const SPARQL_TIMEOUT_MS = 20000;
-const TOURIST_WORDS = /museo|parque|plaza|catedral|iglesia|bas[ií]lica|santuario|templo|monumento|mirador|teatro|zool[oó]gico|acuario|jard[ií]n|playa|castillo|fuerte|fortaleza|cerro|monta[nñ]a|volc[aá]n|cascada|lago|laguna|puente|estadio|mercado|malec[oó]n|sitio arqueol|ruinas|palacio|torre|faro|reserva natural|centro hist[oó]rico|barrio hist[oó]rico/i;
-const EXCLUDED_WORDS = /estaci[oó]n de|aeropuerto|universidad|colegio|escuela|hospital|empresa|club de f[uú]tbol|equipo|municipio|corregimiento|comuna|localidad|distrito electoral/i;
+const TOURIST_WORDS = /museo|parque|plaza|catedral|iglesia|bas[ií]lica|santuario|templo|monumento|mirador|teatro|zool[oó]gico|acuario|jard[ií]n|playa|castillo|fuerte|fortaleza|cerro|monta[nñ]a|volc[aá]n|cascada|lago|laguna|puente|estadio|mercado|malec[oó]n|sitio arqueol|ruinas|palacio|torre|faro|reserva natural|centro hist[oó]rico|barrio hist[oó]rico|museum|park|square|cathedral|church|basilica|temple|shrine|monument|viewpoint|theat(er|re)|zoo|aquarium|garden|beach|castle|fort|hill|mountain|volcano|waterfall|lake|bridge|stadium|market|palace|tower|lighthouse|ruins|landmark|historic|tourist|museu|pra[cç]a|igreja|miradouro|mirante|jardim|praia|castelo|morro|montanha|vulc[aã]o|cachoeira|ponte|est[aá]dio|pal[aá]cio|farol|ru[ií]nas/i;
+const EXCLUDED_WORDS = /estaci[oó]n de|aeropuerto|universidad|colegio|escuela|hospital|empresa|club de f[uú]tbol|equipo|municipio|corregimiento|comuna|localidad|distrito electoral|railway station|metro station|subway station|airport|university|school|company|football club|sports team|municipality|esta[cç][aã]o de|universidade|escola|clube de futebol|munic[ií]pio/i;
 const PLACE_TYPES = ['Q570116', 'Q33506', 'Q207694', 'Q22698', 'Q22746', 'Q11303', 'Q4989906', 'Q179700', 'Q12280', 'Q16970',
   'Q2977', 'Q174782', 'Q1440300', 'Q2319498', 'Q16560', 'Q23413', 'Q43501', 'Q167346', 'Q24354', 'Q40080', 'Q1081138',
   'Q194195', 'Q2281788', 'Q12518', 'Q44539', 'Q32815', 'Q163687', 'Q1107656', 'Q860861', 'Q5003624', 'Q46169', 'Q8502'];
 
 export const CATEGORIES = {
-  monumento: { label: 'Monumento', icon: 'star' },
-  museo: { label: 'Museo', icon: 'image' },
-  parque: { label: 'Parque', icon: 'sun' },
-  mirador: { label: 'Mirador', icon: 'eye' },
-  barrio: { label: 'Barrio', icon: 'pin' },
-  playa: { label: 'Playa', icon: 'sun' },
-  excursion: { label: 'Excursión', icon: 'compass' },
-  ocio: { label: 'Ocio', icon: 'heart' },
-  lugar: { label: 'Lugar de interés', icon: 'pin' }
+  monumento: { label: m('Monumento'), icon: 'star' },
+  museo: { label: m('Museo'), icon: 'image' },
+  parque: { label: m('Parque'), icon: 'sun' },
+  mirador: { label: m('Mirador'), icon: 'eye' },
+  barrio: { label: m('Barrio'), icon: 'pin' },
+  playa: { label: m('Playa'), icon: 'sun' },
+  excursion: { label: m('Excursión'), icon: 'compass' },
+  ocio: { label: m('Ocio'), icon: 'heart' },
+  lugar: { label: m('Lugar de interés'), icon: 'pin' }
 };
 
 const place = (wiki, name, category, tip) => ({ wiki, name, category, tip });
@@ -415,10 +416,11 @@ export function findCity({ text, lat, lon } = {}) {
  * Resumenes de Wikipedia de varios lugares en UNA sola peticion (foto, extracto, coordenadas y enlace).
  * Devuelve un Map titulo pedido → resumen.
  */
-async function wikiSummaries(titles) {
+async function wikiSummaries(titles, lang = 'es', linkLang = '') {
+  const cachePrefix = lang === 'es' && !linkLang ? 'wiki:' : `wiki:${lang}:${linkLang}:`;
   const result = new Map();
   const pending = titles.filter((title) => {
-    const cached = readCache(`wiki:${title}`);
+    const cached = readCache(`${cachePrefix}${title}`);
     if (cached) result.set(title, cached);
     return !cached;
   });
@@ -430,8 +432,14 @@ async function wikiSummaries(titles) {
     exintro: '1', explaintext: '1', exsentences: '2', exlimit: 'max', colimit: 'max',
     titles: pending.join('|')
   });
-  const response = await fetch(`${WIKI_API_URL}?${params}`);
-  if (!response.ok) throw new Error('Wikipedia no respondió. Inténtalo en un momento.');
+  // linkLang: ademas se pide el titulo del mismo articulo en ese idioma
+  if (linkLang) {
+    params.set('prop', `${params.get('prop')}|langlinks`);
+    params.set('lllang', linkLang);
+    params.set('lllimit', 'max');
+  }
+  const response = await fetch(`${wikiApiUrl(lang)}?${params}`);
+  if (!response.ok) throw new Error(t('Wikipedia no respondió. Inténtalo en un momento.'));
   const data = await response.json();
   const aliases = new Map();
   for (const item of [...(data.query?.normalized || []), ...(data.query?.redirects || [])]) aliases.set(item.from, item.to);
@@ -451,9 +459,10 @@ async function wikiSummaries(titles) {
       thumb: page.thumbnail?.source || '',
       lat: page.coordinates?.[0]?.lat ?? null,
       lon: page.coordinates?.[0]?.lon ?? null,
-      url: page.fullurl || ''
+      url: page.fullurl || '',
+      linked: page.langlinks?.[0]?.['*'] || ''
     };
-    writeCache(`wiki:${title}`, summary);
+    writeCache(`${cachePrefix}${title}`, summary);
     result.set(title, summary);
   }
   return result;
@@ -466,17 +475,25 @@ function resizedImage(url, width) {
 
 /* Top de una ciudad conocida, con datos de Wikipedia */
 export async function cityRecommendations(city) {
-  const summaries = await wikiSummaries(city.places.map((item) => item.wiki)).catch(() => new Map());
+  const lang = getLanguage();
+  const titles = city.places.map((item) => item.wiki);
+  const summaries = await wikiSummaries(titles, 'es', lang === 'es' ? '' : lang).catch(() => new Map());
+  // En otro idioma: nombre y texto salen del mismo articulo en la Wikipedia de ese idioma
+  // (los consejos propios estan escritos en español y no se muestran)
+  const localTitles = lang === 'es' ? [] : titles.map((title) => summaries.get(title)?.linked).filter(Boolean);
+  const locals = localTitles.length ? await wikiSummaries(localTitles, lang).catch(() => new Map()) : new Map();
   return city.places.map((item, index) => {
-    const summary = summaries.get(item.wiki);
+    const base = summaries.get(item.wiki);
+    const local = lang === 'es' ? null : locals.get(base?.linked);
+    const summary = local ? { ...base, ...local, thumb: local.thumb || base.thumb, lat: local.lat ?? base.lat, lon: local.lon ?? base.lon } : base;
     const image = summary?.thumb ? resizedImage(summary.thumb, 960) : '';
     return {
       rank: index + 1,
-      name: item.name,
+      name: lang === 'es' ? item.name : (local?.title || item.name).replace(/\s*\([^)]*\)$/, ''),
       category: item.category,
-      tip: item.tip,
-      description: summary?.description || '',
-      extract: summary?.extract || '',
+      tip: lang === 'es' ? item.tip : '',
+      description: (lang === 'es' || local ? summary?.description : '') || '',
+      extract: (lang === 'es' || local ? summary?.extract : '') || '',
       image,
       thumb: summary?.thumb ? resizedImage(summary.thumb, 500) : '',
       lat: summary?.lat ?? null,
@@ -497,8 +514,8 @@ async function wikipediaNearby(lat, lon) {
     generator: 'geosearch', ggscoord: `${lat}|${lon}`, ggsradius: '10000', ggslimit: '100',
     prop: 'pageimages|description|info|coordinates', piprop: 'thumbnail', pithumbsize: '960', inprop: 'url'
   });
-  const response = await fetch(`${WIKI_API_URL}?${params}`);
-  if (!response.ok) throw new Error('No pudimos buscar planes en esta zona ahora mismo. Inténtalo en un momento.');
+  const response = await fetch(`${wikiApiUrl(getLanguage())}?${params}`);
+  if (!response.ok) throw new Error(t('No pudimos buscar planes en esta zona ahora mismo. Inténtalo en un momento.'));
   const data = await response.json();
   return Object.values(data.query?.pages || {})
     .filter((page) => TOURIST_WORDS.test(`${page.title} ${page.description || ''}`) && !EXCLUDED_WORDS.test(page.description || ''))
@@ -525,7 +542,8 @@ async function wikipediaNearby(lat, lon) {
 
 /* Zona no incluida: lugares turisticos cercanos ordenados por popularidad en Wikidata (o plan B) */
 export async function nearbyRecommendations(lat, lon) {
-  const key = `near:${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const lang = getLanguage();
+  const key = `near:${lang === 'es' ? '' : `${lang}:`}${lat.toFixed(2)},${lon.toFixed(2)}`;
   const cached = readCache(key);
   if (cached) return cached;
   try {
@@ -543,6 +561,7 @@ export async function nearbyRecommendations(lat, lon) {
 }
 
 async function wikidataNearby(lat, lon) {
+  const lang = getLanguage();
   const query = `SELECT ?item ?itemLabel ?itemDescription (MAX(?l) AS ?links) (SAMPLE(?c) AS ?coord) (SAMPLE(?img) AS ?image) (SAMPLE(?article) AS ?wiki) WHERE {
     SERVICE wikibase:around { ?item wdt:P625 ?c. bd:serviceParam wikibase:center "Point(${lon} ${lat})"^^geo:wktLiteral; bd:serviceParam wikibase:radius "10". }
     ?item wikibase:sitelinks ?l. FILTER(?l > 3)
@@ -550,8 +569,8 @@ async function wikidataNearby(lat, lon) {
     VALUES ?type { ${PLACE_TYPES.map((id) => `wd:${id}`).join(' ')} }
     ?item wdt:P31/wdt:P279? ?type.
     OPTIONAL { ?item wdt:P18 ?img. }
-    OPTIONAL { ?article schema:about ?item; schema:isPartOf <https://es.wikipedia.org/>. }
-    SERVICE wikibase:label { bd:serviceParam wikibase:language "es,en". }
+    OPTIONAL { ?article schema:about ?item; schema:isPartOf <https://${lang}.wikipedia.org/>. }
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "${lang === 'en' ? 'en,es' : `${lang},en`}". }
   } GROUP BY ?item ?itemLabel ?itemDescription ORDER BY DESC(?links) LIMIT 10`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SPARQL_TIMEOUT_MS);
@@ -560,14 +579,14 @@ async function wikidataNearby(lat, lon) {
       headers: { Accept: 'application/sparql-results+json' },
       signal: controller.signal
     });
-    if (!response.ok) throw new Error('Wikidata no respondió');
+    if (!response.ok) throw new Error(t('Wikidata no respondió'));
     const data = await response.json();
     const results = data.results.bindings.map((row, index) => {
       const [pointLon, pointLat] = (row.coord?.value.match(/-?[\d.]+/g) || []).map(Number);
       const image = row.image?.value ? `${row.image.value.replace('http://', 'https://')}?width=960` : '';
       return {
         rank: index + 1,
-        name: row.itemLabel?.value || 'Lugar de interés',
+        name: row.itemLabel?.value || t('Lugar de interés'),
         category: 'lugar',
         tip: '',
         description: row.itemDescription?.value || '',
@@ -582,7 +601,7 @@ async function wikidataNearby(lat, lon) {
     });
     return results;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('La búsqueda tardó demasiado. Prueba con una zona más concreta o inténtalo de nuevo.');
+    if (error.name === 'AbortError') throw new Error(t('La búsqueda tardó demasiado. Prueba con una zona más concreta o inténtalo de nuevo.'));
     throw error;
   } finally {
     clearTimeout(timer);

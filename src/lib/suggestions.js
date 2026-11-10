@@ -4,13 +4,14 @@
  * provider(texto, { near, signal }) → [{ name, detail?, value, lat?, lon?, code?, href?, icon? }]
  */
 import { suggestCities, suggestPlaces } from './places.js';
+import { m, t } from './i18n/index.js';
 
 const providers = {
   city: (query, options) => suggestCities(query, options),
   place: (query, options) => suggestPlaces(query, options)
 };
 const minLengths = { city: 2, place: 3 };
-const labels = { city: 'Ciudades sugeridas', place: 'Lugares sugeridos' };
+const labels = { city: m('Ciudades sugeridas'), place: m('Lugares sugeridos') };
 
 export const SUGGEST_ICONS = { city: 'pin', place: 'compass' };
 
@@ -29,5 +30,5 @@ export function suggestionMinLength(kind) {
 }
 
 export function suggestionLabel(kind) {
-  return labels[kind] || 'Sugerencias';
+  return t(labels[kind] || 'Sugerencias');
 }
