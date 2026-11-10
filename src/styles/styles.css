@@ -4283,33 +4283,3 @@ body.is-welcome {
   font-weight: 800;
   box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
 }
-
-/* TEMPORAL: diagnostico de ancho (src/components/OverflowProbe.jsx) */
-.overflow-probe {
-  position: fixed;
-  top: calc(env(safe-area-inset-top) + 64px);
-  left: 8px;
-  z-index: 100;
-  display: grid;
-  gap: 4px;
-  width: calc(100vw - 16px);
-  max-width: 374px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #fff3c4;
-  color: #141414;
-  font-size: 12px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 35%);
-}
-
-.overflow-probe button {
-  justify-self: end;
-  padding: 4px 10px;
-  border: 1px solid #141414;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}

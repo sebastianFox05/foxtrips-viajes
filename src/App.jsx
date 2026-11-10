@@ -7,7 +7,6 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { store } from './lib/store/index.js';
 import Icon from './components/Icon.jsx';
-import OverflowProbe from './components/OverflowProbe.jsx';
 import { Avatar } from './components/Avatar.jsx';
 import { useSession } from './session/SessionContext.jsx';
 import { useUi } from './ui/UiContext.jsx';
@@ -199,8 +198,6 @@ export default function App() {
         {hasBottomNav && route.name === 'trip' ? <TripBottomNav tripId={route.params.id} sectionKey={route.params.section} /> : null}
         {hasBottomNav && hasHomeNav ? <HomeBottomNav routeKey={route.name} /> : null}
       </nav>
-      {/* TEMPORAL: diagnostico de la pantalla encogida en iPhone */}
-      <OverflowProbe />
       <footer className="site-footer">
         <p className="site-footer__text">{t('FoxTrips · Hecho para viajar en grupo. Mapas © colaboradores de OpenStreetMap.')}</p>
       </footer>
