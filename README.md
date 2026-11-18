@@ -80,6 +80,11 @@ Para entrar con Google en las vistas previas, en Supabase → Redirect URLs aña
 - **Frases**: 95 frases en inglés, español, portugués, francés, italiano, alemán y japonés (`src/lib/phrases.js`). Se muestran en el idioma del país del destino y se explican en el idioma de la app.
 - El historial guarda cada cambio escrito en el idioma de quien lo hizo.
 
+## Diseño y tema
+
+- Estilo minimalista: fondo neutro, tarjetas planas con borde fino, botones y chips en píldora y barra inferior flotante (solo el activo muestra su nombre). En un viaje, la foto va arriba y el contenido sube encima en una hoja redondeada.
+- **Modo claro y oscuro**: el botón de sol y luna de la cabecera cambia entre los dos; en Perfil → «Idioma, región y apariencia» también se puede volver a «Automático» (como el sistema). Se guarda en el navegador (`src/lib/theme.js`) y se aplica con `data-theme` en `<html>`; los colores están al principio de `src/styles/styles.css`.
+
 ## Avisos push
 
 - Cada persona los activa en Perfil → «Avisos» (por dispositivo) y elige qué recibe: cambios en el plan, votaciones, el grupo (fotos, diario, documentos, equipaje) y recordatorios.

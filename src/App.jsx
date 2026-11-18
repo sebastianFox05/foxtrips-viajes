@@ -8,6 +8,7 @@ import { useLocation } from 'react-router-dom';
 import { store } from './lib/store/index.js';
 import Icon from './components/Icon.jsx';
 import { Avatar } from './components/Avatar.jsx';
+import ThemeToggle from './components/ThemeToggle.jsx';
 import { useSession } from './session/SessionContext.jsx';
 import { useUi } from './ui/UiContext.jsx';
 import { useLightbox } from './ui/LightboxContext.jsx';
@@ -82,6 +83,7 @@ function Header({ user, routeName }) {
           ))}
         </nav>
         <div className="site-header__user" id="userArea">
+          <ThemeToggle />
           {user ? (
             <>
               <span className="site-header__name">{user.name}</span>
@@ -102,13 +104,13 @@ function TripBottomNav({ tripId, sectionKey }) {
       {links.map((section) => (
         <li key={section.key}>
           <a className={`bottom-nav__link ${section.key === sectionKey ? 'bottom-nav__link--active' : ''}`} href={`#/viaje/${tripId}/${section.key}`} aria-current={section.key === sectionKey ? 'page' : undefined}>
-            <Icon name={section.icon} size={22} /><span>{t(section.label)}</span>
+            <Icon name={section.icon} size={22} /><span className="bottom-nav__label">{t(section.label)}</span>
           </a>
         </li>
       ))}
       <li>
         <a className={`bottom-nav__link ${isMore ? 'bottom-nav__link--active' : ''}`} href={`#/viaje/${tripId}/mas`} aria-current={isMore ? 'page' : undefined}>
-          <Icon name="grid" size={22} /><span>{t('Más')}</span>
+          <Icon name="grid" size={22} /><span className="bottom-nav__label">{t('Más')}</span>
         </a>
       </li>
     </ul>
@@ -119,10 +121,10 @@ function HomeBottomNav({ routeKey }) {
   const { openNewTrip } = useTripActions();
   return (
     <ul className="bottom-nav__list">
-      <li><a className={`bottom-nav__link ${routeKey === 'home' ? 'bottom-nav__link--active' : ''}`} href="#/"><Icon name="home" size={22} /><span>{t('Viajes')}</span></a></li>
-      <li><button className="bottom-nav__link" type="button" onClick={openNewTrip}><Icon name="plus" size={22} /><span>{t('Nuevo')}</span></button></li>
-      <li><a className={`bottom-nav__link ${routeKey === 'planes' ? 'bottom-nav__link--active' : ''}`} href="#/planes"><Icon name="star" size={22} /><span>{t('Planes')}</span></a></li>
-      <li><a className={`bottom-nav__link ${routeKey === 'perfil' ? 'bottom-nav__link--active' : ''}`} href="#/perfil"><Icon name="user" size={22} /><span>{t('Perfil')}</span></a></li>
+      <li><a className={`bottom-nav__link ${routeKey === 'home' ? 'bottom-nav__link--active' : ''}`} href="#/"><Icon name="home" size={22} /><span className="bottom-nav__label">{t('Viajes')}</span></a></li>
+      <li><button className="bottom-nav__link" type="button" onClick={openNewTrip}><Icon name="plus" size={22} /><span className="bottom-nav__label">{t('Nuevo')}</span></button></li>
+      <li><a className={`bottom-nav__link ${routeKey === 'planes' ? 'bottom-nav__link--active' : ''}`} href="#/planes"><Icon name="star" size={22} /><span className="bottom-nav__label">{t('Planes')}</span></a></li>
+      <li><a className={`bottom-nav__link ${routeKey === 'perfil' ? 'bottom-nav__link--active' : ''}`} href="#/perfil"><Icon name="user" size={22} /><span className="bottom-nav__label">{t('Perfil')}</span></a></li>
     </ul>
   );
 }

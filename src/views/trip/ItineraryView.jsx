@@ -792,19 +792,17 @@ export default function ItineraryView() {
     : '';
   return (
     <div id="itinerary">
-      <div className="section__head no-print">
+      {/* Titulo y "Actividad" en una linea; debajo, como ver los dias (el PDF esta en la cabecera de la foto) */}
+      <div className="section__head section__head--nowrap no-print">
         <h2>{t('Itinerario')}</h2>
-        <div className="page-head__actions">
-          <div className="segmented segmented--compact" role="group" aria-label={t('Forma de ver los días')}>
-            {VIEW_MODES.map((item) => (
-              <button key={item.key} className={`segmented__btn ${item.key === mode ? 'segmented__btn--active' : ''}`} type="button" aria-pressed={item.key === mode} onClick={() => modeHandler(item.key)}>
-                <Icon name={item.icon} size={16} /> {t(item.label)}
-              </button>
-            ))}
-          </div>
-          <button className="btn btn--small" type="button" onClick={() => window.print()}><Icon name="print" size={16} /> {t('PDF')}</button>
-          {canEdit ? <button className="btn btn--primary btn--small" type="button" onClick={() => newActivityHandler('')}><Icon name="plus" size={16} /> {t('Actividad')}</button> : null}
-        </div>
+        {canEdit ? <button className="btn btn--primary btn--small" type="button" onClick={() => newActivityHandler('')}><Icon name="plus" size={16} /> {t('Actividad')}</button> : null}
+      </div>
+      <div className="segmented segmented--compact itinerary-modes no-print" role="group" aria-label={t('Forma de ver los días')}>
+        {VIEW_MODES.map((item) => (
+          <button key={item.key} className={`segmented__btn ${item.key === mode ? 'segmented__btn--active' : ''}`} type="button" aria-pressed={item.key === mode} onClick={() => modeHandler(item.key)}>
+            <Icon name={item.icon} size={16} /> {t(item.label)}
+          </button>
+        ))}
       </div>
       {zoneNote ? <p className="section__hint zone-note no-print"><Icon name="clock" size={14} /> {zoneNote}</p> : null}
       <DndContext

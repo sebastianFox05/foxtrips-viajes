@@ -5,10 +5,11 @@
  * Todo se guarda en este navegador. Cambiar el idioma recarga la app para aplicarlo en todas las pantallas.
  */
 import { useState } from 'react';
-import { LANGUAGES, deviceLanguage, getLanguageChoice, setLanguageChoice, t } from '../../lib/i18n/index.js';
+import { LANGUAGES, deviceLanguage, getLanguageChoice, m, setLanguageChoice, t } from '../../lib/i18n/index.js';
 import { automaticValue, getPreference, setPreference } from '../../lib/locale.js';
 import { currencyOptions, homeCurrency, setHomeCurrency } from '../../lib/currencies.js';
 import Icon from '../../components/Icon.jsx';
+import { getThemeChoice, setThemeChoice } from '../../lib/theme.js';
 
 function changeLanguage(value) {
   if (setLanguageChoice(value)) window.location.reload();
@@ -48,6 +49,33 @@ function PreferenceField({ id, label, name, options }) {
   );
 }
 
+/* Apariencia: automatico (como el sistema), claro u oscuro. Se aplica al momento, sin recargar */
+const THEME_OPTIONS = [
+  { key: 'auto', label: m('Automático'), icon: 'compass' },
+  { key: 'light', label: m('Claro'), icon: 'sun' },
+  { key: 'dark', label: m('Oscuro'), icon: 'moon' }
+];
+
+function ThemeField() {
+  const [choice, setChoice] = useState(getThemeChoice);
+  function chooseHandler(key) {
+    setThemeChoice(key);
+    setChoice(key);
+  }
+  return (
+    <div className="form__field">
+      <span className="form__label" id="prefThemeLabel">{t('Apariencia')}</span>
+      <div className="segmented segmented--full" role="group" aria-labelledby="prefThemeLabel">
+        {THEME_OPTIONS.map((option) => (
+          <button key={option.key} className={`segmented__btn ${option.key === choice ? 'segmented__btn--active' : ''}`} type="button" aria-pressed={option.key === choice} onClick={() => chooseHandler(option.key)}>
+            <Icon name={option.icon} size={16} /> {t(option.label)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function RegionSettings() {
   const [language, setLanguage] = useState(getLanguageChoice);
   const [currency, setCurrency] = useState(homeCurrency);
@@ -56,9 +84,10 @@ export default function RegionSettings() {
 
   return (
     <section className="card" aria-labelledby="regionTitle">
-      <h2 className="card__title" id="regionTitle">{t('Idioma y región')}</h2>
+      <h2 className="card__title" id="regionTitle">{t('Idioma, región y apariencia')}</h2>
       <p className="card__text">{t('Se guardan en este dispositivo. Las horas de los planes son siempre las del destino.')}</p>
       <div className="form">
+        <ThemeField />
         <div className="form__row">
           <div className="form__field">
             <label className="form__label" htmlFor="prefLanguage">{t('Idioma de la app')}</label>
