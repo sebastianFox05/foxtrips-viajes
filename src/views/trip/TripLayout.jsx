@@ -1,6 +1,7 @@
 /* Estructura comun de un viaje: cabecera con foto, pestañas de escritorio y la pestaña activa. */
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { photoTransitionName } from '../../lib/transition.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import { AvatarStack } from '../../components/Avatar.jsx';
@@ -33,7 +34,7 @@ function Hero({ sectionKey }) {
 
   return (
     <header className={`hero ${isTall ? 'hero--tall' : ''}`}>
-      {trip.cover_url ? <Picture url={trip.cover_url} className="hero__media" isLazy={false} width={1600} height={900} /> : null}
+      {trip.cover_url ? <Picture url={trip.cover_url} className="hero__media" isLazy={false} width={1600} height={900} style={{ viewTransitionName: photoTransitionName(trip.id) }} /> : null}
       <div className="hero__bar">
         <a className="hero__btn" href="#/" aria-label={t('Volver a mis viajes')}><Icon name="back" /></a>
         <div className="hero__bar-actions">
@@ -126,8 +127,11 @@ function TripPage({ sectionKey, views }) {
 }
 
 export default function TripLayout({ tripId, sectionKey, views }) {
+  // Desde la tarjeta del inicio llega el viaje: la cabecera se pinta al momento (y la foto pasa de una a otra)
+  const location = useLocation();
+  const initialTrip = location.state?.trip?.id === tripId ? location.state.trip : null;
   return (
-    <TripProvider tripId={tripId}>
+    <TripProvider tripId={tripId} initialTrip={initialTrip}>
       <TripPage sectionKey={sectionKey} views={views} />
     </TripProvider>
   );

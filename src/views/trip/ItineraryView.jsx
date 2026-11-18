@@ -10,8 +10,7 @@ import {
 import { store } from '../../lib/store/index.js';
 import { uploadPhoto } from '../../lib/media.js';
 import { geocode } from '../../lib/services.js';
-import { placeHistory } from '../../lib/place-history.js';
-import { debounce, eachDay, formatDay, formatWeekday, formToObject, parseDay, safeUrl, sortActivities } from '../../lib/utils.js';
+import { debounce, eachDay, formatDay, formatWeekday, formToObject, parseDay, sortActivities } from '../../lib/utils.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import Scroller from '../../components/Scroller.jsx';
@@ -21,10 +20,11 @@ import useLoad from '../../hooks/useLoad.js';
 import { useBusy, useUi } from '../../ui/UiContext.jsx';
 import { useTrip } from './TripContext.jsx';
 import { PRINT_FLAG } from './TripLayout.jsx';
+import ActivitySheet from './ActivitySheet.jsx';
 import { TRAVEL_LABELS, dayInsights, formatMinutes } from './dayPlanning.js';
 import { shortStopName } from '../../lib/stops.js';
 import { formatDistance, formatHours, formatTime, intlLocale, zoneDifferenceHours, zoneLabel } from '../../lib/locale.js';
-import { getLanguage, m, t, tn } from '../../lib/i18n/index.js';
+import { m, t, tn } from '../../lib/i18n/index.js';
 
 const LOOSE_KEY = 'sin-dia';
 const VIEW_KEY = 'foxtrips:itinerary-view';
@@ -89,60 +89,6 @@ function bigDate(day) {
   const date = parseDay(day);
   const main = date.toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' }).replace(/\./g, '').replace(/ de /g, ' ').toUpperCase();
   return { main, sub: formatDay(day, { weekday: 'long' }) };
-}
-
-/* ---- Historia del lugar (Wikipedia) ---- */
-
-function Paragraphs({ text }) {
-  return text.split(/\n+/).filter((line) => line.trim()).map((line, index) => <p key={index}>{line.trim()}</p>);
-}
-
-function HistoryContent({ activity }) {
-  const [state, setState] = useState({ status: 'loading' });
-  useEffect(() => {
-    let isCurrent = true;
-    placeHistory(activity)
-      .then((history) => isCurrent && setState({ status: history ? 'found' : 'empty', history }))
-      .catch((error) => isCurrent && setState({ status: 'error', message: error.message }));
-    return () => {
-      isCurrent = false;
-    };
-  }, [activity]);
-
-  if (state.status === 'loading') return <p className="loading">{t('Buscando la historia de este lugar…')}</p>;
-  if (state.status === 'error') return <p className="history__empty">{state.message}</p>;
-  if (state.status === 'empty') {
-    const search = `https://${getLanguage()}.wikipedia.org/w/index.php?search=${encodeURIComponent(activity.place || activity.title)}`;
-    return (
-      <div className="history">
-        <p className="history__empty">{t('No encontramos la historia de este lugar en Wikipedia. Suele pasar con restaurantes, hoteles, traslados o sitios muy nuevos.')}</p>
-        <p className="history__source"><a href={search} target="_blank" rel="noopener noreferrer">{t('Buscarlo en Wikipedia')}</a></p>
-      </div>
-    );
-  }
-  const { history } = state;
-  return (
-    <article className="history">
-      <header className="history__head">
-        <p className="history__article"><Icon name="book" size={16} /> {history.title}</p>
-        {history.description ? <p className="history__description">{history.description}</p> : null}
-      </header>
-      <section className="history__block" aria-labelledby="historyFamous">
-        <h3 className="history__heading" id="historyFamous"><Icon name="star" size={16} /> {t('Por qué es famoso')}</h3>
-        <Paragraphs text={history.intro} />
-      </section>
-      {history.history ? (
-        <section className="history__block" aria-labelledby="historyPast">
-          <h3 className="history__heading" id="historyPast"><Icon name="clock" size={16} /> {t('Su historia')}</h3>
-          <Paragraphs text={history.history} />
-        </section>
-      ) : null}
-      <p className="history__source">
-        {history.lang !== getLanguage() ? `${t('Este lugar solo tiene artículo en inglés.')} ` : ''}
-        {t('Fuente:')} <a href={safeUrl(history.url)} target="_blank" rel="noopener noreferrer">{t('Wikipedia, artículo completo')}</a> · {t('Texto con licencia CC BY-SA 4.0.')}
-      </p>
-    </article>
-  );
 }
 
 /* ---- Formulario de actividad ---- */
@@ -353,7 +299,7 @@ function Activity({ activity, comments, isPrint = false, handlers, insight, card
                   <Icon name="grip" size={16} />
                 </button>
               ) : null}
-              <button className="btn btn--ghost btn--small" type="button" aria-label={t('Historia de {title}', { title: activity.title })} onClick={() => handlers.history(activity)}><Icon name="book" size={16} /> {t('Historia')}</button>
+              <button className="btn btn--ghost btn--small" type="button" aria-label={t('Ver la ficha de {title}', { title: activity.title })} onClick={() => handlers.history(activity)}><Icon name="book" size={16} /> {t('Ficha')}</button>
               <button className="btn btn--ghost btn--small" type="button" aria-label={t('Comentarios de {title}: {n}', { title: activity.title, n: commentCount })} onClick={() => handlers.comments(activity)}><Icon name="chat" size={16} /> {commentCount}</button>
               {activity.lat != null ? <a className="btn btn--ghost btn--small btn--icon" href={`#/viaje/${trip.id}/mapa?foco=${activity.id}`} aria-label={t('Ver {title} en el mapa', { title: activity.title })}><Icon name="map" size={16} /></a> : null}
               {canEdit ? (
@@ -426,6 +372,7 @@ export default function ItineraryView() {
   const shouldScrollRef = useRef(false);
   const [slotOverrides, setSlotOverrides] = useState({});
   const [draggingId, setDraggingId] = useState(null);
+  const [sheetActivity, setSheetActivity] = useState(null);
   const { data } = useLoad(() => Promise.all([store.list('activities', tripId), store.list('comments', tripId)]), [tripId, refreshKey]);
   // Raton: arrastrar 6 px. Movil: mantener pulsado 250 ms (asi deslizar la pagina sigue funcionando). Teclado: boton "Mover".
   const sensors = useSensors(
@@ -572,8 +519,9 @@ export default function ItineraryView() {
     comments(activity) {
       openModal(activity.title, <div><Comments tripId={tripId} targetType="activity" targetId={activity.id} headingLevel={3} isAutoFocus /></div>);
     },
+    // Ficha del plan a pantalla completa: fotos, datos, notas e historia del lugar
     history(activity) {
-      openModal(activity.title, <HistoryContent activity={activity} />);
+      setSheetActivity(activity);
     }
   };
 
@@ -837,6 +785,7 @@ export default function ItineraryView() {
           );
         })}
       </div>
+      <ActivitySheet activity={sheetActivity} tripId={tripId} reelDays={reelDays} onClose={() => setSheetActivity(null)} />
     </div>
   );
 }

@@ -176,6 +176,8 @@ export default function App() {
     classList.toggle('has-bottom-nav', hasBottomNav);
     classList.toggle('is-trip', route.name === 'trip' || route.name === 'public');
     classList.toggle('is-auth', isAuthScreen);
+    // En el inicio, en movil, la fila con tu foto y saludo hace de cabecera
+    classList.toggle('is-home', route.name === 'home');
     // La bienvenida ocupa justo la pantalla: la pagina de detras no debe poder desplazarse
     classList.toggle('is-welcome', route.name === 'welcome');
     document.documentElement.classList.toggle('is-welcome', route.name === 'welcome');

@@ -9,6 +9,7 @@ import { eachDay, formatDay, formatMoney, formatWeekday, sortActivities, today }
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import Scroller from '../../components/Scroller.jsx';
+import { Avatar } from '../../components/Avatar.jsx';
 import useLoad from '../../hooks/useLoad.js';
 import { useUi } from '../../ui/UiContext.jsx';
 import { MOBILE_KEYS, SECTIONS } from './sections.js';
@@ -28,6 +29,57 @@ function Stat({ value, label, href }) {
         <span className="stats__label">{label}</span>
       </a>
     </li>
+  );
+}
+
+/* Mosaico de fotos: una alta y dos al lado; la ultima dice cuantas mas hay. Todo lleva al album */
+function PhotoMosaic({ tripId, photos }) {
+  const shown = photos.slice(0, 3);
+  const rest = photos.length - shown.length;
+  if (!shown.length) return null;
+  return (
+    <section className="section" aria-labelledby="mosaicTitle">
+      <div className="section__head">
+        <h2 id="mosaicTitle">{t('Fotos')}</h2>
+        <a className="link-btn" href={`#/viaje/${tripId}/album`}>{t('Ver todo')} <Icon name="next" size={16} /></a>
+      </div>
+      <ul className={`mosaic mosaic--${shown.length}`}>
+        {shown.map((photo, index) => {
+          const isLast = index === shown.length - 1 && rest > 0;
+          return (
+            <li key={photo.id} className="mosaic__item">
+              <a className="mosaic__link" href={`#/viaje/${tripId}/album`} aria-label={isLast ? t('Ver {n} fotos más en el álbum', { n: rest }) : t('Ver foto {n}', { n: index + 1 })}>
+                <Picture url={photo.thumb_url || photo.url} alt={photo.caption || ''} width={480} height={480} />
+                {isLast ? <span className="mosaic__more">{t('+{n} más', { n: rest })}</span> : null}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/* Quien viaja: foto (o iniciales) y nombre de cada persona del grupo */
+function People({ tripId, members }) {
+  if (!members.length) return null;
+  return (
+    <section className="section" aria-labelledby="peopleTitle">
+      <div className="section__head">
+        <h2 id="peopleTitle">{t('Quién viaja')}</h2>
+        <a className="link-btn" href={`#/viaje/${tripId}/miembros`}>{t('Grupo')} <Icon name="next" size={16} /></a>
+      </div>
+      <Scroller>
+        <ul className="chips people">
+          {members.map((member) => (
+            <li key={member.user_id} className="people__item">
+              <Avatar name={member.name} userId={member.user_id} extraClass="avatar--xl" />
+              <span className="people__name">{member.name.split(' ')[0]}</span>
+            </li>
+          ))}
+        </ul>
+      </Scroller>
+    </section>
   );
 }
 
@@ -256,7 +308,7 @@ function Converter({ tripCurrency }) {
 
 export default function SummaryView() {
   const navigate = useNavigate();
-  const { trip, tripId, isOwner, refreshKey, reloadTrip, timeZone, tripToday, stopOn, currentStop } = useTrip();
+  const { trip, tripId, members, isOwner, refreshKey, reloadTrip, timeZone, tripToday, stopOn, currentStop } = useTrip();
   // Moneda del conversor: la del viaje en el primer destino; en las demas paradas, la de su pais
   const stopCurrency = currentStop?.index ? currencyForCountry(currentStop.countryCode) : '';
   const { toast, toastError } = useUi();
@@ -313,6 +365,9 @@ export default function SummaryView() {
           ))}
         </ul>
       </section>
+
+      <PhotoMosaic tripId={trip.id} photos={photos.slice().sort((first, second) => (second.created_at || '').localeCompare(first.created_at || ''))} />
+      <People tripId={trip.id} members={members} />
 
       <div className="grid grid--2 section">
         <section className="card" aria-labelledby="nextTitle">
