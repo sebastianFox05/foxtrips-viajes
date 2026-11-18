@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon.jsx';
+import SlideToStart from '../../components/SlideToStart.jsx';
 import { markWelcomeSeen, photoSources } from './welcomeState.js';
 import { m, t } from '../../lib/i18n/index.js';
 
@@ -135,14 +136,21 @@ export default function WelcomeView() {
             />
           ))}
         </div>
-        <div className="welcome__bar">
-          <button className="welcome__skip" type="button" onClick={() => { stopAutoplay(); finish(); }}>{t('Saltar')}</button>
-          <div className="welcome__arrows">
-            <button className="welcome__arrow welcome__arrow--prev" type="button" aria-label={t('Anterior')} hidden={index === 0} onClick={() => step(-1)}><Icon name="back" size={22} /></button>
-            <button className="welcome__start" type="button" hidden={index !== LAST} onClick={() => { stopAutoplay(); finish(); }}>{t('Empezar')}</button>
-            <button className="welcome__arrow welcome__arrow--next" type="button" aria-label={index === LAST ? t('Empezar: ir a crear cuenta o entrar') : t('Siguiente')} onClick={() => step(1)}><Icon name="next" size={22} /></button>
+        {index === LAST ? (
+          // Ultima diapositiva: volver y "desliza para empezar"
+          <div className="welcome__bar welcome__bar--start">
+            <button className="welcome__arrow welcome__arrow--outline" type="button" aria-label={t('Anterior')} onClick={() => step(-1)}><Icon name="back" size={22} /></button>
+            <SlideToStart label={t('Desliza para empezar')} ariaLabel={t('Empezar: ir a crear cuenta o entrar')} onComplete={() => { stopAutoplay(); finish(); }} />
           </div>
-        </div>
+        ) : (
+          <div className="welcome__bar">
+            <button className="welcome__skip" type="button" onClick={() => { stopAutoplay(); finish(); }}>{t('Saltar')}</button>
+            <div className="welcome__arrows">
+              <button className="welcome__arrow welcome__arrow--prev" type="button" aria-label={t('Anterior')} hidden={index === 0} onClick={() => step(-1)}><Icon name="back" size={22} /></button>
+              <button className="welcome__arrow welcome__arrow--next" type="button" aria-label={t('Siguiente')} onClick={() => step(1)}><Icon name="next" size={22} /></button>
+            </div>
+          </div>
+        )}
       </footer>
     </section>
   );

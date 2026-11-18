@@ -23,8 +23,9 @@ function isTyping() {
   return Boolean(active && app?.contains(active) && active.matches('input:not([type=checkbox]):not([type=file]), textarea, select'));
 }
 
-export function TripProvider({ tripId, children }) {
-  const [state, setState] = useState({ trip: null, members: [], error: null, isLoading: true });
+export function TripProvider({ tripId, initialTrip = null, children }) {
+  // initialTrip: el viaje tal como venia en la lista (para pintar la cabecera sin esperar); luego se recarga
+  const [state, setState] = useState(() => ({ trip: initialTrip, members: [], error: null, isLoading: !initialTrip }));
   const [refreshKey, setRefreshKey] = useState(0);
   // Zona horaria y pais de cada parada, por posicion: [{ timeZone, countryCode }]
   const [stopsInfo, setStopsInfo] = useState([]);
@@ -44,9 +45,9 @@ export function TripProvider({ tripId, children }) {
   }, [tripId]);
 
   useEffect(() => {
-    setState({ trip: null, members: [], error: null, isLoading: true });
+    setState((current) => (current.trip?.id === tripId ? current : { trip: null, members: [], error: null, isLoading: true }));
     loadTrip();
-  }, [loadTrip]);
+  }, [loadTrip, tripId]);
 
   // Zona horaria y pais de cada parada: primero lo recordado, luego lo que diga la red
   const stops = useMemo(() => tripStops(state.trip), [state.trip]);

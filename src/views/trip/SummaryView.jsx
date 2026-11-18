@@ -5,13 +5,14 @@ import { forecast, rates, tripWeather, weatherInfo } from '../../lib/services.js
 import { currencyForCountry, currencyOptions, homeCurrency, setHomeCurrency } from '../../lib/currencies.js';
 import { formatDegrees, formatHours, formatTime, temperatureUnit, timeIn, zoneDifferenceHours, zoneLabel } from '../../lib/locale.js';
 import { nearestCityName } from '../../lib/places.js';
-import { eachDay, formatDay, formatMoney, formatWeekday, sortActivities, today, tripStatus } from '../../lib/utils.js';
+import { eachDay, formatDay, formatMoney, formatWeekday, sortActivities, today } from '../../lib/utils.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import Scroller from '../../components/Scroller.jsx';
+import { Avatar } from '../../components/Avatar.jsx';
 import useLoad from '../../hooks/useLoad.js';
 import { useUi } from '../../ui/UiContext.jsx';
-import { SECTIONS } from './sections.js';
+import { MOBILE_KEYS, SECTIONS } from './sections.js';
 import { useTrip } from './TripContext.jsx';
 import { PRINT_FLAG } from './TripLayout.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -19,12 +20,79 @@ import { t, tn } from '../../lib/i18n/index.js';
 
 const MAX_WEATHER_DAYS = 21;
 
-function InfoItem({ iconName, label, value, isWide = false }) {
+/* Una cifra del viaje: el numero grande y debajo que es; se pulsa para ir a esa seccion */
+function Stat({ value, label, href }) {
   return (
-    <div className={`info-row__item${isWide ? ' info-row__item--wide' : ''}`}>
-      <span className="info-row__icon"><Icon name={iconName} /></span>
-      <div><span className="info-row__label">{label}</span><span className="info-row__value">{value}</span></div>
-    </div>
+    <li>
+      <a className="stats__item" href={href}>
+        <span className="stats__value">{value}</span>
+        <span className="stats__label">{label}</span>
+      </a>
+    </li>
+  );
+}
+
+/* Mosaico de fotos: una alta y dos al lado; la ultima dice cuantas mas hay. Todo lleva al album */
+function PhotoMosaic({ tripId, photos }) {
+  const shown = photos.slice(0, 3);
+  const rest = photos.length - shown.length;
+  if (!shown.length) return null;
+  return (
+    <section className="section" aria-labelledby="mosaicTitle">
+      <div className="section__head">
+        <h2 id="mosaicTitle">{t('Fotos')}</h2>
+        <a className="link-btn" href={`#/viaje/${tripId}/album`}>{t('Ver todo')} <Icon name="next" size={16} /></a>
+      </div>
+      <ul className={`mosaic mosaic--${shown.length}`}>
+        {shown.map((photo, index) => {
+          const isLast = index === shown.length - 1 && rest > 0;
+          return (
+            <li key={photo.id} className="mosaic__item">
+              <a className="mosaic__link" href={`#/viaje/${tripId}/album`} aria-label={isLast ? t('Ver {n} fotos más en el álbum', { n: rest }) : t('Ver foto {n}', { n: index + 1 })}>
+                <Picture url={photo.thumb_url || photo.url} alt={photo.caption || ''} width={480} height={480} />
+                {isLast ? <span className="mosaic__more">{t('+{n} más', { n: rest })}</span> : null}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/* Quien viaja: foto (o iniciales) y nombre de cada persona del grupo */
+function People({ tripId, members }) {
+  if (!members.length) return null;
+  return (
+    <section className="section" aria-labelledby="peopleTitle">
+      <div className="section__head">
+        <h2 id="peopleTitle">{t('Quién viaja')}</h2>
+        <a className="link-btn" href={`#/viaje/${tripId}/miembros`}>{t('Grupo')} <Icon name="next" size={16} /></a>
+      </div>
+      <Scroller>
+        <ul className="chips people">
+          {members.map((member) => (
+            <li key={member.user_id} className="people__item">
+              <Avatar name={member.name} userId={member.user_id} extraClass="avatar--xl" />
+              <span className="people__name">{member.name.split(' ')[0]}</span>
+            </li>
+          ))}
+        </ul>
+      </Scroller>
+    </section>
+  );
+}
+
+/* Descripcion del viaje: se ven unas lineas y "Ver más" abre el resto */
+function About({ text }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const isLong = text.length > 180;
+  return (
+    <section className="about" aria-labelledby="aboutTitle">
+      <h2 className="about__title" id="aboutTitle">{t('Sobre el viaje')}</h2>
+      <p className={`about__text${isLong && !isOpen ? ' about__text--clamped' : ''}`}>{text}</p>
+      {isLong ? <button className="link-btn" type="button" aria-expanded={isOpen} onClick={() => setIsOpen(!isOpen)}>{isOpen ? t('Ver menos') : t('Ver más')}</button> : null}
+    </section>
   );
 }
 
@@ -39,7 +107,12 @@ function LocalTime({ timeZone }) {
   let difference = t('igual que tu hora');
   if (hours > 0) difference = t('{hours} h más que tu hora', { hours: formatHours(hours) });
   if (hours < 0) difference = t('{hours} h menos que tu hora', { hours: formatHours(hours) });
-  return <InfoItem isWide iconName="compass" label={t('Hora en el destino')} value={`${timeIn(timeZone, now)} · ${zoneLabel(timeZone, now)} · ${difference}`} />;
+  return (
+    <p className="local-time">
+      <Icon name="clock" size={16} />
+      <span><strong>{t('Hora en el destino')}</strong> {`${timeIn(timeZone, now)} · ${zoneLabel(timeZone, now)} · ${difference}`}</span>
+    </p>
+  );
 }
 
 function Upcoming({ tripId, activities, now }) {
@@ -235,7 +308,7 @@ function Converter({ tripCurrency }) {
 
 export default function SummaryView() {
   const navigate = useNavigate();
-  const { trip, tripId, isOwner, refreshKey, reloadTrip, timeZone, tripToday, stopOn, currentStop } = useTrip();
+  const { trip, tripId, members, isOwner, refreshKey, reloadTrip, timeZone, tripToday, stopOn, currentStop } = useTrip();
   // Moneda del conversor: la del viaje en el primer destino; en las demas paradas, la de su pais
   const stopCurrency = currentStop?.index ? currencyForCountry(currentStop.countryCode) : '';
   const { toast, toastError } = useUi();
@@ -247,9 +320,8 @@ export default function SummaryView() {
 
   if (!data) return null;
   const [activities, photos, proposals] = data;
-  const status = tripStatus(trip, tripToday);
   const openProposals = proposals.filter((proposal) => proposal.status === 'open').length;
-  const quickLinks = SECTIONS.filter((section) => section.key !== 'resumen');
+  const quickLinks = SECTIONS.filter((section) => !MOBILE_KEYS.includes(section.key));
 
   async function copyPublicLinkHandler() {
     try {
@@ -272,24 +344,30 @@ export default function SummaryView() {
   return (
     <>
       <h2 className="visually-hidden">{t('Resumen del viaje')}</h2>
-      <div className="info-row">
-        <InfoItem iconName="clock" label={t('Estado')} value={status.label} />
-        <InfoItem iconName="calendar" label={t('Planes')} value={tn(activities.length, '{n} actividad', '{n} actividades')} />
-        <InfoItem iconName="image" label={t('Álbum')} value={tn(photos.length, '{n} foto', '{n} fotos')} />
-        <InfoItem iconName="vote" label={t('Votaciones')} value={tn(openProposals, '{n} abierta', '{n} abiertas')} />
-        {timeZone ? <LocalTime timeZone={timeZone} /> : null}
-      </div>
+      {trip.description ? <About text={trip.description} /> : null}
+      <ul className="stats" aria-label={t('El viaje en cifras')}>
+        <Stat value={activities.length} label={tn(activities.length, 'plan', 'planes')} href={`#/viaje/${trip.id}/itinerario`} />
+        <Stat value={photos.length} label={tn(photos.length, 'foto', 'fotos')} href={`#/viaje/${trip.id}/album`} />
+        <Stat value={openProposals} label={tn(openProposals, 'votación abierta', 'votaciones abiertas')} href={`#/viaje/${trip.id}/propuestas`} />
+      </ul>
+      {timeZone ? <LocalTime timeZone={timeZone} /> : null}
 
       <section className="section" aria-labelledby="exploreTitle">
         <div className="section__head"><h2 id="exploreTitle">{t('Explorar')}</h2></div>
-        <Scroller>
-          <ul className="chips">
-            {quickLinks.map((section) => (
-              <li key={section.key}><a className="chip" href={`#/viaje/${trip.id}/${section.key}`}><span className="chip__icon"><Icon name={section.icon} size={18} /></span>{t(section.label)}</a></li>
-            ))}
-          </ul>
-        </Scroller>
+        <ul className="tiles">
+          {quickLinks.map((section) => (
+            <li key={section.key}>
+              <a className="tile" href={`#/viaje/${trip.id}/${section.key}`}>
+                <span className="tile__icon"><Icon name={section.icon} size={20} /></span>
+                <span className="tile__label">{t(section.label)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
+
+      <PhotoMosaic tripId={trip.id} photos={photos.slice().sort((first, second) => (second.created_at || '').localeCompare(first.created_at || ''))} />
+      <People tripId={trip.id} members={members} />
 
       <div className="grid grid--2 section">
         <section className="card" aria-labelledby="nextTitle">

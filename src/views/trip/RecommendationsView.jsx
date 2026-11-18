@@ -6,10 +6,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { store } from '../../lib/store/index.js';
 import { CATEGORIES, cityRecommendations, distanceKm, findCity, nearbyRecommendations } from '../../lib/recommendations.js';
-import { currentPosition, reverseGeocode } from '../../lib/services.js';
+import { currentPosition, currentTemperature, reverseGeocode } from '../../lib/services.js';
 import { bestCity, localizedCityName } from '../../lib/places.js';
 import { safeUrl } from '../../lib/utils.js';
-import { formatDistance } from '../../lib/locale.js';
+import { formatDegrees, formatDistance, temperatureUnit } from '../../lib/locale.js';
+import PlaceSheet from '../../components/PlaceSheet.jsx';
 import { shortStopName } from '../../lib/stops.js';
 import Scroller from '../../components/Scroller.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -36,7 +37,7 @@ async function recommendationsFor({ text, lat, lon }) {
   return { city: null, items: await nearbyRecommendations(lat, lon), isCurated: false };
 }
 
-function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose }) {
+function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose, onOpen }) {
   const [isAdding, runAdd] = useBusy();
   const category = CATEGORIES[item.category] || CATEGORIES.lugar;
   let distance = '';
@@ -44,7 +45,6 @@ function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose
     distance = formatDistance(distanceKm(place.lat, place.lon, item.lat, item.lon));
   }
   const mapsUrl = item.lat != null ? `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lon}` : '';
-  const wikiUrl = safeUrl(item.url || '');
   const image = safeUrl(item.image || '');
   return (
     <li>
@@ -54,22 +54,21 @@ function RecoCard({ item, place, canAdd, canPropose, isPlanned, onAdd, onPropose
           <span className="reco__rank" aria-label={t('Puesto {n}', { n: item.rank })}>#{item.rank}</span>
           <div className="photo-card__overlay">
             <p className="photo-card__kicker"><Icon name={category.icon} size={12} /> {t(category.label)}{distance ? ` · ${t('a {distance}', { distance })}` : ''}</p>
-            <h3 className="photo-card__title">{item.name}</h3>
+            {/* Toda la foto abre la ficha del lugar */}
+            <h3 className="photo-card__title"><button className="photo-card__link reco__open" type="button" aria-label={t('Ver la ficha de {title}', { title: item.name })} onClick={() => onOpen(item)}>{item.name}</button></h3>
             {item.description ? <p className="photo-card__place">{item.description}</p> : null}
           </div>
         </div>
         <div className="reco__body">
           {item.tip ? <p className="reco__tip"><Icon name="star" size={14} /> {item.tip}</p> : null}
-          {item.extract ? <p className="reco__extract">{item.extract}</p> : null}
           <div className="reco__actions">
             {canAdd ? (isPlanned
               ? <span className="badge badge--success"><Icon name="check" size={14} /> {t('En tu plan')}</span>
               : <button className="btn btn--primary btn--small" type="button" disabled={isAdding} onClick={() => runAdd(() => onAdd(item))}>{isAdding ? t('Guardando…') : <><Icon name="plus" size={16} /> {t('Añadir al plan')}</>}</button>) : null}
             {canPropose ? <button className="btn btn--small" type="button" onClick={() => onPropose(item)}><Icon name="vote" size={16} /> {t('Proponer')}</button> : null}
             {mapsUrl ? <a className="btn btn--ghost btn--small" href={mapsUrl} target="_blank" rel="noopener noreferrer"><Icon name="map" size={16} /> {t('Cómo llegar')}</a> : null}
-            {wikiUrl ? <a className="btn btn--ghost btn--small" href={wikiUrl} target="_blank" rel="noopener noreferrer">{t('Saber más')}</a> : null}
+            <button className="btn btn--ghost btn--small" type="button" onClick={() => onOpen(item)}>{t('Saber más')}</button>
           </div>
-          {item.credit ? <p className="reco__credit">{t('Foto e información: {credit}', { credit: item.credit })}</p> : null}
         </div>
       </article>
     </li>
@@ -97,9 +96,22 @@ export default function RecommendationsView({ isStandalone = false }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isShowingAll, setIsShowingAll] = useState(memory.isShowingAll);
   const [plannedTitles, setPlannedTitles] = useState(new Set());
+  // Ficha a pantalla completa del lugar elegido, con la temperatura de ahora alli
+  const [openItem, setOpenItem] = useState(null);
+  const [openTemp, setOpenTemp] = useState(null);
   const seqRef = useRef(0);
   const queryRef = useRef(null);
   Object.assign(memory, { source, place, results, errorMessage, isShowingAll, stopIndex });
+
+  useEffect(() => {
+    setOpenTemp(null);
+    if (openItem?.lat == null) return undefined;
+    let isCurrent = true;
+    currentTemperature(openItem.lat, openItem.lon).then((value) => isCurrent && setOpenTemp(value)).catch(() => null);
+    return () => {
+      isCurrent = false;
+    };
+  }, [openItem]);
 
   // Planes ya en el itinerario (para marcar "En tu plan")
   useEffect(() => {
@@ -226,6 +238,31 @@ export default function RecommendationsView({ isStandalone = false }) {
     }
   }
 
+  /* Datos de la ficha de un lugar recomendado */
+  function recoPlace(item) {
+    const category = CATEGORIES[item.category] || CATEGORIES.lugar;
+    const from = place?.lat != null ? place : (trip?.lat != null ? { lat: trip.lat, lon: trip.lon } : null);
+    const distance = from && item.lat != null ? formatDistance(distanceKm(from.lat, from.lon, item.lat, item.lon)) : '—';
+    const isPlanned = plannedTitles.has(item.name.toLowerCase());
+    return {
+      title: item.name,
+      location: [item.description, place?.cityName || place?.label].filter(Boolean).join(' · '),
+      images: [safeUrl(item.image || '')],
+      stats: [
+        { label: place?.isHere ? t('Desde aquí') : t('Distancia'), value: distance },
+        { label: t('Temperatura'), value: openTemp == null ? '—' : `${formatDegrees(openTemp)}°${temperatureUnit()}` },
+        { label: t('Puesto'), value: `#${item.rank}` }
+      ],
+      description: [item.tip, item.extract].filter(Boolean).join('\n\n'),
+      source: item.url ? { url: item.url, label: item.credit ? t('Foto e información: {credit}', { credit: item.credit }) : t('Saber más') } : null,
+      footLabel: t('Categoría'),
+      footValue: t(category.label),
+      action: canEdit
+        ? { label: isPlanned ? t('En tu plan') : t('Añadir al plan'), icon: 'plus', isDone: isPlanned, onClick: () => addHandler(item) }
+        : (item.lat != null ? { label: t('Cómo llegar'), icon: 'map', onClick: () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lon}`, '_blank', 'noopener') } : null)
+    };
+  }
+
   let resultsContent = null;
   if (isLoading) {
     resultsContent = <p className="loading" role="status">{source === 'aqui' ? t('Buscando dónde estás…') : t('Buscando los planes más populares…')}</p>;
@@ -253,7 +290,7 @@ export default function RecommendationsView({ isStandalone = false }) {
         </div>
         <ol className="reco-list">
           {visible.map((item) => (
-            <RecoCard key={`${item.rank}-${item.name}`} item={item} place={place} canAdd={canEdit} canPropose={Boolean(trip)} isPlanned={plannedTitles.has(item.name.toLowerCase())} onAdd={addHandler} onPropose={proposeHandler} />
+            <RecoCard key={`${item.rank}-${item.name}`} item={item} place={place} canAdd={canEdit} canPropose={Boolean(trip)} isPlanned={plannedTitles.has(item.name.toLowerCase())} onAdd={addHandler} onPropose={proposeHandler} onOpen={setOpenItem} />
           ))}
         </ol>
         {results.length > TOP ? (
@@ -322,6 +359,7 @@ export default function RecommendationsView({ isStandalone = false }) {
         </form>
       </div>
       <section id="recoResults" aria-live="polite">{resultsContent}</section>
+      <PlaceSheet place={openItem ? recoPlace(openItem) : null} onClose={() => setOpenItem(null)} />
     </>
   );
 }

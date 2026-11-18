@@ -104,6 +104,15 @@ export function weatherInfo(code) {
   return { emoji: match[1], label: t(match[2]) };
 }
 
+/* Temperatura de ahora en un lugar (°C, redondeada), para la ficha del lugar */
+export async function currentTemperature(lat, lon) {
+  const response = await fetch(`${WEATHER_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`);
+  if (!response.ok) throw new Error(t('No se pudo cargar el clima.'));
+  const data = await response.json();
+  const value = data.current?.temperature_2m;
+  return typeof value === 'number' ? value : null;
+}
+
 export async function forecast(lat, lon) {
   const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`;
   const response = await fetch(url);

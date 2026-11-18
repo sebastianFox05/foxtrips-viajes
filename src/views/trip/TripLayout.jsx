@@ -1,6 +1,7 @@
 /* Estructura comun de un viaje: cabecera con foto, pestañas de escritorio y la pestaña activa. */
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { photoTransitionName } from '../../lib/transition.js';
 import Icon from '../../components/Icon.jsx';
 import Picture from '../../components/Picture.jsx';
 import { AvatarStack } from '../../components/Avatar.jsx';
@@ -33,7 +34,7 @@ function Hero({ sectionKey }) {
 
   return (
     <header className={`hero ${isTall ? 'hero--tall' : ''}`}>
-      {trip.cover_url ? <Picture url={trip.cover_url} className="hero__media" isLazy={false} width={1600} height={900} /> : null}
+      {trip.cover_url ? <Picture url={trip.cover_url} className="hero__media" isLazy={false} width={1600} height={900} style={{ viewTransitionName: photoTransitionName(trip.id) }} /> : null}
       <div className="hero__bar">
         <a className="hero__btn" href="#/" aria-label={t('Volver a mis viajes')}><Icon name="back" /></a>
         <div className="hero__bar-actions">
@@ -42,25 +43,13 @@ function Hero({ sectionKey }) {
         </div>
       </div>
       <div className="hero__content">
-        <p className="hero__kicker">{isTall ? formatRange(trip.start_date, trip.end_date) : section ? t(section.label) : ''}</p>
+        <p className="hero__kicker">{isTall ? [formatRange(trip.start_date, trip.end_date), days ? tn(days, '{n} día', '{n} días') : ''].filter(Boolean).join(' · ') : section ? t(section.label) : ''}</p>
         <h1 className={`hero__title ${isTall ? '' : 'hero__title--compact'}`}>{trip.name}</h1>
         {trip.destination ? <p className="hero__place"><Icon name="pin" size={16} /> {routeLabel(trip)}</p> : null}
         {isTall ? (
-          <div className="glass">
-            <div className="glass__top">
-              <h2 className="glass__title">{trip.destination || trip.name}</h2>
-              <span className="badge badge--accent"><Icon name="star" size={14} /> {status.label}</span>
-            </div>
-            <p className="glass__meta">
-              <span><Icon name="calendar" size={16} /> {formatRange(trip.start_date, trip.end_date)}</span>
-              {days ? <span><Icon name="clock" size={16} /> {tn(days, '{n} día', '{n} días')}</span> : null}
-              <span><AvatarStack people={members} max={4} /> {tn(members.length, '{n} viajero', '{n} viajeros')}</span>
-            </p>
-            {trip.description ? <p className="glass__text">{trip.description}</p> : null}
-            <div className="glass__actions">
-              <a className="btn btn--white" href={`#/viaje/${trip.id}/mapa`}>{t('Ver en el mapa')}</a>
-              <a className="btn btn--white btn--icon" href={`#/viaje/${trip.id}/itinerario`} aria-label={t('Ver itinerario')}><Icon name="calendar" /></a>
-            </div>
+          <div className="hero__meta">
+            <span className="hero__status">{status.label}</span>
+            <span className="hero__people"><AvatarStack people={members} max={4} /> {tn(members.length, '{n} viajero', '{n} viajeros')}</span>
           </div>
         ) : null}
       </div>
@@ -130,7 +119,7 @@ function TripPage({ sectionKey, views }) {
     <>
       <Hero sectionKey={sectionKey} />
       <Tabs sectionKey={sectionKey} />
-      <section id="tabPanel" aria-live="off">
+      <section className="trip-sheet" id="tabPanel" aria-live="off">
         <View key={sectionKey} />
       </section>
     </>
@@ -138,8 +127,11 @@ function TripPage({ sectionKey, views }) {
 }
 
 export default function TripLayout({ tripId, sectionKey, views }) {
+  // Desde la tarjeta del inicio llega el viaje: la cabecera se pinta al momento (y la foto pasa de una a otra)
+  const location = useLocation();
+  const initialTrip = location.state?.trip?.id === tripId ? location.state.trip : null;
   return (
-    <TripProvider tripId={tripId}>
+    <TripProvider tripId={tripId} initialTrip={initialTrip}>
       <TripPage sectionKey={sectionKey} views={views} />
     </TripProvider>
   );

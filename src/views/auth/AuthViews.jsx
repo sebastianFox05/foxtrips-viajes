@@ -40,14 +40,25 @@ function authErrorMessage(error) {
   return match ? t(match[1]) : text || t('No se pudo completar. Inténtalo de nuevo.');
 }
 
-function GoogleIcon() {
+/*
+ * Estructura de las pantallas de acceso: la foto arriba que se funde con el fondo oscuro,
+ * volver a la bienvenida, el titulo sobre la foto y el formulario abajo.
+ */
+function AuthLayout({ title, lead, hasBack = true, children }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z" />
-      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.2-.1-2.3-.4-3.5z" />
-    </svg>
+    <div className="auth-screen">
+      <AuthVisual />
+      <div className="auth-screen__inner">
+        <header className="auth-top">
+          {hasBack ? <a className="auth-top__back" href="#/bienvenida" aria-label={t('Ver la bienvenida')}><Icon name="back" size={20} /></a> : null}
+          <h1 className="auth-top__title" id="authTitle">{title}</h1>
+          <p className="auth-top__lead">{lead}</p>
+        </header>
+        <section className="auth-panel" aria-labelledby="authTitle">
+          {children}
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -95,7 +106,6 @@ export function LoginView() {
   const [error, setError] = useState('');
   const [isBusy, runBusy] = useBusy();
   const [isForgotBusy, runForgot] = useBusy();
-  const [isGoogleBusy, runGoogle] = useBusy();
   const formRef = useRef(null);
   const isLocal = store.mode === 'local';
   const isFirstModeRef = useRef(true);
@@ -127,14 +137,6 @@ export function LoginView() {
       toast(t('Te enviamos un correo para cambiar la contraseña.'));
     } catch (forgotError) {
       toastError(forgotError);
-    }
-  }
-
-  async function googleHandler() {
-    try {
-      await runGoogle(() => store.signInWithGoogle());
-    } catch (googleError) {
-      toastError(googleError);
     }
   }
 
@@ -175,55 +177,42 @@ export function LoginView() {
     });
   }
 
-  let title = isSignUp ? t('Crea tu cuenta') : t('Inicia sesión');
-  let lead = isSignUp ? t('Empieza a planear tu próximo viaje en grupo.') : t('Qué bien verte de nuevo.');
+  let title = isSignUp ? t('Crea tu cuenta') : t('¡Hola de nuevo!');
+  let lead = isSignUp ? t('Empieza a planear tu próximo viaje en grupo.') : t('Sigue con tu próxima aventura.');
   if (isLocal) {
     title = t('Empieza a viajar');
     lead = t('Dinos tu nombre para que el grupo sepa quién añade cada plan.');
   }
-  const primaryText = isLocal ? t('Continuar') : isSignUp ? t('Continuar con correo') : t('Entrar con correo');
+  const primaryText = isLocal ? t('Continuar') : isSignUp ? t('Crear cuenta') : t('Entrar');
 
   return (
-    <div className="auth-screen">
-      <div className="auth-screen__grid">
-        <AuthVisual />
-        <section className="auth-panel" aria-labelledby="authTitle">
-          <h1 className="auth-panel__title" id="authTitle">{title}</h1>
-          <p className="auth-panel__lead">{lead}</p>
-          <form className="auth-panel__form" noValidate onSubmit={submitHandler} ref={formRef} key={isSignUp ? 'signup' : 'signin'}>
-            {isLocal ? <AuthField id="loginName" name="name" label={t('Tu nombre')} iconName="user" autoComplete="name" maxLength={40} /> : (
-              <>
-                {isSignUp ? <AuthField id="loginName" name="name" label={t('Tu nombre')} iconName="user" autoComplete="name" maxLength={40} /> : null}
-                <AuthField id="loginEmail" name="email" type="email" label={t('Correo electrónico')} iconName="mail" autoComplete="email" />
-                <AuthField id="loginPassword" name="password" type="password" label={t('Contraseña')} iconName="lock" autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={6} />
-                {isSignUp
-                  ? <AuthField id="loginConfirm" name="confirm" type="password" label={t('Confirmar contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
-                  : <button className="auth-panel__link auth-panel__link--end" type="button" onClick={forgotHandler} disabled={isForgotBusy}>{isForgotBusy ? t('Guardando…') : t('¿Olvidaste tu contraseña?')}</button>}
-              </>
-            )}
-            <AuthError message={error} />
-            <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : primaryText}</button>
-          </form>
-          {isLocal ? null : (
-            <>
-              <div className="auth-panel__divider"><span>{t('o')}</span></div>
-              <button className="auth-btn auth-btn--outline" type="button" onClick={googleHandler} disabled={isGoogleBusy}>{isGoogleBusy ? t('Guardando…') : <><GoogleIcon /> {t('Continuar con Google')}</>}</button>
-              <p className="auth-panel__switch">
-                {isSignUp ? t('¿Ya tienes cuenta?') : t('¿Aún no tienes cuenta?')}{' '}
-                <button className="auth-panel__link auth-panel__link--accent" type="button" onClick={() => { setError(''); setIsSignUp(!isSignUp); }}>{isSignUp ? t('Inicia sesión') : t('Crea una')}</button>
-              </p>
-            </>
-          )}
-          {isLocal ? <p className="auth-panel__note">{t('Modo local: los datos se guardan solo en este navegador. Para compartir viajes con tu grupo, configura Supabase (README.md).')}</p> : null}
-          <a className="auth-panel__back" href="#/bienvenida"><Icon name="back" size={14} /> {t('Ver la bienvenida')}</a>
-          <LanguagePicker className="auth-panel__language" />
-        </section>
-      </div>
-    </div>
+    <AuthLayout title={title} lead={lead}>
+      <form className="auth-panel__form" noValidate onSubmit={submitHandler} ref={formRef} key={isSignUp ? 'signup' : 'signin'}>
+        {isLocal ? <AuthField id="loginName" name="name" label={t('Tu nombre')} iconName="user" autoComplete="name" maxLength={40} /> : (
+          <>
+            {isSignUp ? <AuthField id="loginName" name="name" label={t('Tu nombre')} iconName="user" autoComplete="name" maxLength={40} /> : null}
+            <AuthField id="loginEmail" name="email" type="email" label={t('Correo electrónico')} iconName="mail" autoComplete="email" />
+            <AuthField id="loginPassword" name="password" type="password" label={t('Contraseña')} iconName="lock" autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={6} />
+            {isSignUp
+              ? <AuthField id="loginConfirm" name="confirm" type="password" label={t('Confirmar contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
+              : <button className="auth-panel__link auth-panel__link--end" type="button" onClick={forgotHandler} disabled={isForgotBusy}>{isForgotBusy ? t('Guardando…') : t('¿Olvidaste tu contraseña?')}</button>}
+          </>
+        )}
+        <AuthError message={error} />
+        <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : primaryText}</button>
+      </form>
+      {isLocal ? null : (
+        <p className="auth-panel__switch">
+          {isSignUp ? t('¿Ya tienes cuenta?') : t('¿Aún no tienes cuenta?')}{' '}
+          <button className="auth-panel__link auth-panel__link--accent" type="button" onClick={() => { setError(''); setIsSignUp(!isSignUp); }}>{isSignUp ? t('Inicia sesión') : t('Crea una')}</button>
+        </p>
+      )}
+      {isLocal ? <p className="auth-panel__note">{t('Modo local: los datos se guardan solo en este navegador. Para compartir viajes con tu grupo, configura Supabase (README.md).')}</p> : null}
+      <LanguagePicker className="auth-panel__language" />
+    </AuthLayout>
   );
 }
 
-/* Pantalla que aparece al volver del correo de "¿Olvidaste tu contraseña?" */
 export function RecoveryView() {
   const navigate = useNavigate();
   const { refreshUser } = useSession();
@@ -260,21 +249,14 @@ export function RecoveryView() {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-screen__grid">
-        <AuthVisual />
-        <section className="auth-panel" aria-labelledby="authTitle">
-          <h1 className="auth-panel__title" id="authTitle">{t('Nueva contraseña')}</h1>
-          <p className="auth-panel__lead">{t('Escribe la contraseña que usarás a partir de ahora.')}</p>
-          <form className="auth-panel__form" noValidate onSubmit={submitHandler}>
-            <AuthField id="newPassword" name="password" type="password" label={t('Nueva contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
-            <AuthField id="newConfirm" name="confirm" type="password" label={t('Repite la contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
-            <AuthError message={error} />
-            <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : t('Guardar contraseña')}</button>
-          </form>
-        </section>
-      </div>
-    </div>
+    <AuthLayout title={t('Nueva contraseña')} lead={t('Escribe la contraseña que usarás a partir de ahora.')} hasBack={false}>
+      <form className="auth-panel__form" noValidate onSubmit={submitHandler}>
+        <AuthField id="newPassword" name="password" type="password" label={t('Nueva contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
+        <AuthField id="newConfirm" name="confirm" type="password" label={t('Repite la contraseña')} iconName="lock" autoComplete="new-password" minLength={6} />
+        <AuthError message={error} />
+        <button className="auth-btn auth-btn--primary" type="submit" disabled={isBusy}>{isBusy ? t('Guardando…') : t('Guardar contraseña')}</button>
+      </form>
+    </AuthLayout>
   );
 }
 
